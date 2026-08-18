@@ -1,0 +1,9 @@
+{
+  "name": "fysc-leaderboard",
+  "version": "1.0.0",
+  "private": true,
+  "main": "api/leaderboard.js",
+  "scripts": {
+    "start": "node api/leaderboard.js"
+  }
+}
