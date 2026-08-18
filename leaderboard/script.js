@@ -1,20 +1,53 @@
-const DB_URL = 'https://final-fysc-default-rtdb.asia-southeast1.firebasedatabase.app/.json';
+const DEFAULT_API_URL =
+  window.LEADERBOARD_API_URL ||
+  (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+    ? 'http://localhost:3000/api/leaderboard/top50'
+    : '/api/leaderboard/top50');
+
+const FALLBACK_DB_URL = 'https://final-fysc-default-rtdb.asia-southeast1.firebasedatabase.app/.json';
 const grid = document.getElementById('grid');
 const errorEl = document.getElementById('error');
 
 function fmtNumber(n){
   if(n==null) return '0';
-  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,",");
+  return Number(n).toLocaleString();
+}
+
+function normalizeEntry(item){
+  const entry = item && typeof item === 'object' ? item : {};
+  const subs = Number(
+    entry.subscribers ??
+    entry.subscriberCount ??
+    entry.subs ??
+    entry.sub_count ??
+    entry.subscriber_count ??
+    entry.count ??
+    0
+  );
+
+  return {
+    ...entry,
+    name: entry.name || entry.displayName || entry.username || 'Unknown',
+    subscribers: Number.isFinite(subs) ? subs : 0,
+  };
 }
 
 function createCell(rank, item){
   const el = document.createElement('div');
   el.className = 'cell';
-  const rankEl = document.createElement('div'); rankEl.className='rank'; rankEl.textContent = `#${rank}`;
-  const nameEl = document.createElement('div'); nameEl.className='name'; nameEl.textContent = item.name || item.displayName || 'Unknown';
-  const subsEl = document.createElement('div'); subsEl.className='subs';
-  const subs = item.subscriberCount ?? item.subs ?? item.subscribers ?? item.sub_count ?? item.sub_count || 0;
-  subsEl.textContent = `${fmtNumber(subs)} subscribers`;
+
+  const rankEl = document.createElement('div');
+  rankEl.className = 'rank';
+  rankEl.textContent = `#${rank}`;
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'name';
+  nameEl.textContent = item.name || 'Unknown';
+
+  const subsEl = document.createElement('div');
+  subsEl.className = 'subs';
+  subsEl.textContent = `${fmtNumber(item.subscribers)} subscribers`;
+
   el.appendChild(rankEl);
   el.appendChild(nameEl);
   el.appendChild(subsEl);
@@ -22,46 +55,53 @@ function createCell(rank, item){
 }
 
 function showError(msg){
-  errorEl.hidden = false; errorEl.textContent = msg;
+  errorEl.hidden = false;
+  errorEl.textContent = msg;
+}
+
+async function fetchLeaderboardData(){
+  const urls = [DEFAULT_API_URL, FALLBACK_DB_URL];
+
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.warn(`Failed to fetch ${url}:`, err.message);
+    }
+  }
+
+  throw new Error('Could not load leaderboard data');
 }
 
 async function load(){
-  try{
-    const res = await fetch(DB_URL);
-    if(!res.ok) throw new Error('Network response not ok: '+res.status);
-    const data = await res.json();
-    if(!data || typeof data !== 'object') throw new Error('Unexpected data format');
+  try {
+    const data = await fetchLeaderboardData();
+    const items = Array.isArray(data)
+      ? data
+      : data && typeof data === 'object'
+        ? Object.values(data)
+        : [];
 
-    // Transform entries into array
-    const items = Object.values(data).map(v=>v||{});
+    const normalized = items.map(normalizeEntry);
+    normalized.sort((a, b) => Number(b.subscribers || 0) - Number(a.subscribers || 0));
+    const top = normalized.slice(0, 50);
 
-    // Heuristic to find subscriber count value inside object
-    const normalized = items.map(it=>{
-      const keys = Object.keys(it);
-      let subs = null;
-      for(const k of ['subscriberCount','subscribers','subs','sub_count','subscriber_count','subscriber']){
-        if(k in it){ subs = Number(it[k]); break; }
-      }
-      // try to find numeric child value
-      if(subs==null){
-        for(const k of keys){ if(typeof it[k]==='number'){ subs = it[k]; break; }}
-      }
-      return { ...it, subscriberCount: subs ?? 0 };
-    });
+    grid.innerHTML = '';
 
-    normalized.sort((a,b)=>Number(b.subscriberCount||0)-Number(a.subscriberCount||0));
-    const top = normalized.slice(0,50);
-
-    // clear grid and render 50 cells (fill blanks if fewer)
-    grid.innerHTML='';
-    for(let i=0;i<50;i++){
-      const item = top[i] || { name: '—', subscriberCount: 0 };
-      grid.appendChild(createCell(i+1,item));
+    for (let i = 0; i < 50; i++) {
+      const item = top[i] || { name: '—', subscribers: 0 };
+      grid.appendChild(createCell(i + 1, normalizeEntry(item)));
     }
 
-  }catch(err){
+    if (!top.length) {
+      showError('No leaderboard entries yet.');
+    }
+  } catch (err) {
     console.error(err);
-    showError('Failed to load leaderboard: '+err.message);
+    showError('Failed to load leaderboard: ' + err.message);
   }
 }
 
