@@ -14,6 +14,7 @@ h1{text-align:center;margin-bottom:18px}
 .rank{font-weight:700;color:var(--accent);font-size:14px}
 .name{font-weight:600;font-size:15px;margin-top:6px}
 .subs{font-size:13px;color:#9fb6c9;margin-top:4px}
+.empty-state{justify-content:center;align-items:center;text-align:center;color:#c9d6e6;min-height:120px;grid-column:1 / -1}
 .error{color:#ffb4b4;background:#3b0b0b;padding:12px;border-radius:6px;margin-top:12px}
 
 @media (max-width:1000px){

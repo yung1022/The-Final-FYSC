@@ -91,13 +91,17 @@ async function load(){
 
     grid.innerHTML = '';
 
+    if (!top.length) {
+      const empty = document.createElement('div');
+      empty.className = 'cell empty-state';
+      empty.textContent = 'No leaderboard entries yet.';
+      grid.appendChild(empty);
+      return;
+    }
+
     for (let i = 0; i < 50; i++) {
       const item = top[i] || { name: '—', subscribers: 0 };
       grid.appendChild(createCell(i + 1, normalizeEntry(item)));
-    }
-
-    if (!top.length) {
-      showError('No leaderboard entries yet.');
     }
   } catch (err) {
     console.error(err);

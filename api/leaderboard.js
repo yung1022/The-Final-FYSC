@@ -1,7 +1,25 @@
-const store = globalThis.__leaderboardStore || (globalThis.__leaderboardStore = []);
+const DEMO_ENTRIES = [
+  { id: 1, name: 'Alice', subscribers: 25000, guildId: 'demo', userId: 'demo1' },
+  { id: 2, name: 'Bob', subscribers: 22000, guildId: 'demo', userId: 'demo2' },
+  { id: 3, name: 'Charlie', subscribers: 18000, guildId: 'demo', userId: 'demo3' },
+  { id: 4, name: 'Diana', subscribers: 16000, guildId: 'demo', userId: 'demo4' },
+  { id: 5, name: 'Ethan', subscribers: 12000, guildId: 'demo', userId: 'demo5' },
+];
+
+const store = globalThis.__leaderboardStore || (globalThis.__leaderboardStore = [...DEMO_ENTRIES]);
 
 function sortEntries(entries) {
   return [...entries].sort((a, b) => Number(b.subscribers ?? 0) - Number(a.subscribers ?? 0));
+}
+
+function ensureSeedData() {
+  if (store.length === 0) {
+    store.push(...DEMO_ENTRIES.map((entry, index) => ({
+      ...entry,
+      id: Date.now() + index,
+      createdAt: new Date().toISOString(),
+    })));
+  }
 }
 
 function readBody(req) {
@@ -51,6 +69,7 @@ module.exports = async function handler(req, res) {
   const isTop50 = url.pathname.endsWith('/top50') || url.pathname === '/api/leaderboard/top50';
 
   if (req.method === 'GET') {
+    ensureSeedData();
     const data = sortEntries(store);
     const payload = isTop50 ? data.slice(0, 50) : data;
     res.writeHead(200);
