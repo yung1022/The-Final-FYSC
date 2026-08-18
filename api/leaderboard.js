@@ -39,9 +39,11 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Content-Type', 'application/json');
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    res.writeHead(200);
+    res.end();
     return;
   }
 
@@ -50,7 +52,9 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'GET') {
     const data = sortEntries(store);
-    res.status(200).json(isTop50 ? data.slice(0, 50) : data);
+    const payload = isTop50 ? data.slice(0, 50) : data;
+    res.writeHead(200);
+    res.end(JSON.stringify(payload));
     return;
   }
 
@@ -61,7 +65,8 @@ module.exports = async function handler(req, res) {
       const subscribers = Number(body.subscribers ?? body.subscriberCount ?? body.subs ?? 0);
 
       if (!Number.isFinite(subscribers)) {
-        res.status(400).json({ error: 'Invalid subscribers value' });
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Invalid subscribers value' }));
         return;
       }
 
@@ -75,12 +80,15 @@ module.exports = async function handler(req, res) {
       };
 
       store.push(entry);
-      res.status(200).json({ message: 'Leaderboard entry added', entry });
+      res.writeHead(200);
+      res.end(JSON.stringify({ message: 'Leaderboard entry added', entry }));
     } catch (error) {
-      res.status(400).json({ error: error.message || 'Bad request' });
+      res.writeHead(400);
+      res.end(JSON.stringify({ error: error.message || 'Bad request' }));
     }
     return;
   }
 
-  res.status(405).json({ error: 'Method not allowed' });
+  res.writeHead(405);
+  res.end(JSON.stringify({ error: 'Method not allowed' }));
 };
