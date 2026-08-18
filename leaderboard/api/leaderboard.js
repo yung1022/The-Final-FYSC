@@ -1,4 +1,17 @@
-const store = globalThis.__leaderboardStore || (globalThis.__leaderboardStore = []);
+const DEMO_ENTRIES = [
+  { id: 1, name: 'Alice', subscribers: 25000 },
+  { id: 2, name: 'Ben', subscribers: 22000 },
+  { id: 3, name: 'Chris', subscribers: 21000 },
+  { id: 4, name: 'Diana', subscribers: 19800 },
+  { id: 5, name: 'Ethan', subscribers: 18500 },
+  { id: 6, name: 'Fiona', subscribers: 17000 },
+  { id: 7, name: 'George', subscribers: 16500 },
+  { id: 8, name: 'Hannah', subscribers: 15200 },
+  { id: 9, name: 'Ian', subscribers: 14800 },
+  { id: 10, name: 'Julia', subscribers: 14300 },
+];
+
+const store = globalThis.__leaderboardStore || (globalThis.__leaderboardStore = DEMO_ENTRIES);
 
 function sortEntries(entries) {
   return [...entries].sort((a, b) => Number(b.subscribers ?? 0) - Number(a.subscribers ?? 0));

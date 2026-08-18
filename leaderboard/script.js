@@ -1,3 +1,16 @@
+const DEMO_ENTRIES = [
+  { name: 'Alice', subscribers: 25000 },
+  { name: 'Ben', subscribers: 22000 },
+  { name: 'Chris', subscribers: 21000 },
+  { name: 'Diana', subscribers: 19800 },
+  { name: 'Ethan', subscribers: 18500 },
+  { name: 'Fiona', subscribers: 17000 },
+  { name: 'George', subscribers: 16500 },
+  { name: 'Hannah', subscribers: 15200 },
+  { name: 'Ian', subscribers: 14800 },
+  { name: 'Julia', subscribers: 14300 },
+];
+
 const DEFAULT_API_URL =
   window.LEADERBOARD_API_URL ||
   (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
@@ -79,11 +92,15 @@ async function fetchLeaderboardData(){
 async function load(){
   try {
     const data = await fetchLeaderboardData();
-    const items = Array.isArray(data)
+    let items = Array.isArray(data)
       ? data
       : data && typeof data === 'object'
         ? Object.values(data)
         : [];
+
+    if (!items.length) {
+      items = DEMO_ENTRIES;
+    }
 
     const normalized = items.map(normalizeEntry);
     normalized.sort((a, b) => Number(b.subscribers || 0) - Number(a.subscribers || 0));
