@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/leaderboard", "destination": "/api/leaderboard" },
+    { "source": "/api/leaderboard/top50", "destination": "/api/leaderboard" }
+  ]
+}
