@@ -94,6 +94,9 @@ module.exports = async function handler(req, res) {
         createdAt: new Date().toISOString(),
         name,
         subscribers,
+        growth: Number(body.growth ?? body.growthCount ?? body.growthValue ?? 0),
+        video: Number(body.video ?? body.videoCount ?? 0),
+        short: Number(body.short ?? body.shortCount ?? 0),
         guildId: body.guildId || null,
         userId: body.userId || null,
       };
