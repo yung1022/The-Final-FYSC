@@ -40,8 +40,7 @@ async function writeEntry(entry, key) {
 }
 
 async function addEntry(entry) {
-  const key = entry.userId || `entry-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  return writeEntry(entry, key);
+  return writeEntry({ ...entry, id: entry.userId }, entry.userId);
 }
 
 function readBody(req) {
@@ -114,9 +113,9 @@ module.exports = async function handler(req, res) {
       const userId = body.userId || pathUserId;
       const updating = req.method === 'PUT' || isUpdate;
 
-      if (updating && !userId) {
+      if (!userId) {
         res.writeHead(400);
-        res.end(JSON.stringify({ error: 'userId is required to update an entry' }));
+        res.end(JSON.stringify({ error: 'userId is required' }));
         return;
       }
 
@@ -143,13 +142,19 @@ module.exports = async function handler(req, res) {
         const entries = await readEntries();
         const index = entries.findIndex((entry) => String(entry.userId) === String(userId));
         if (index === -1) {
-          res.writeHead(404);
-          res.end(JSON.stringify({ error: 'Leaderboard entry not found' }));
+          const newEntry = {
+            id: userId,
+            createdAt: new Date().toISOString(),
+            ...entryData,
+          };
+          await writeEntry(newEntry, userId);
+          res.writeHead(200);
+          res.end(JSON.stringify({ message: 'Leaderboard entry created', entry: newEntry }));
           return;
         }
 
         const existing = entries[index];
-        const updatedEntry = { ...existing, ...entryData, updatedAt: new Date().toISOString() };
+        const updatedEntry = { ...existing, ...entryData, id: userId, updatedAt: new Date().toISOString() };
         await writeEntry(updatedEntry, userId);
         res.writeHead(200);
         res.end(JSON.stringify({ message: 'Leaderboard entry updated', entry: updatedEntry }));
