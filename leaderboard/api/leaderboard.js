@@ -1,17 +1,4 @@
-const DEMO_ENTRIES = [
-  { id: 1, name: 'Alice', subscribers: 25000 },
-  { id: 2, name: 'Ben', subscribers: 22000 },
-  { id: 3, name: 'Chris', subscribers: 21000 },
-  { id: 4, name: 'Diana', subscribers: 19800 },
-  { id: 5, name: 'Ethan', subscribers: 18500 },
-  { id: 6, name: 'Fiona', subscribers: 17000 },
-  { id: 7, name: 'George', subscribers: 16500 },
-  { id: 8, name: 'Hannah', subscribers: 15200 },
-  { id: 9, name: 'Ian', subscribers: 14800 },
-  { id: 10, name: 'Julia', subscribers: 14300 },
-];
-
-const store = globalThis.__leaderboardStore || (globalThis.__leaderboardStore = DEMO_ENTRIES);
+const store = globalThis.__leaderboardStore || (globalThis.__leaderboardStore = []);
 
 function sortEntries(entries) {
   return [...entries].sort((a, b) => Number(b.subscribers ?? 0) - Number(a.subscribers ?? 0));
@@ -71,9 +58,15 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  if (req.method === 'POST') {
+  if (req.method === 'POST' || req.method === 'PUT') {
     try {
       const body = req.body && typeof req.body === 'object' ? req.body : await readBody(req);
+      if (req.method === 'PUT' && !body.userId) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'userId is required to update an entry' }));
+        return;
+      }
+
       const name = body.name || body.displayName || body.username || 'Unknown';
       const subscribers = Number(body.subscribers ?? body.subscriberCount ?? body.subs ?? 0);
 
@@ -83,13 +76,34 @@ module.exports = async function handler(req, res) {
         return;
       }
 
+      const entryData = {
+        name,
+        subscribers,
+        growth: Number(body.growth ?? body.growthCount ?? body.growthValue ?? 0),
+        video: Number(body.video ?? body.videoCount ?? 0),
+        short: Number(body.short ?? body.shortCount ?? 0),
+        guildId: body.guildId || null,
+        userId: body.userId || null,
+      };
+
+      if (req.method === 'PUT') {
+        const index = store.findIndex((entry) => entry.userId === String(body.userId));
+        if (index === -1) {
+          res.writeHead(404);
+          res.end(JSON.stringify({ error: 'Leaderboard entry not found' }));
+          return;
+        }
+
+        store[index] = { ...store[index], ...entryData, updatedAt: new Date().toISOString() };
+        res.writeHead(200);
+        res.end(JSON.stringify({ message: 'Leaderboard entry updated', entry: store[index] }));
+        return;
+      }
+
       const entry = {
         id: Date.now() + Math.floor(Math.random() * 1000),
         createdAt: new Date().toISOString(),
-        name,
-        subscribers,
-        guildId: body.guildId || null,
-        userId: body.userId || null,
+        ...entryData,
       };
 
       store.push(entry);

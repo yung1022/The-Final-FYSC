@@ -1,25 +1,7 @@
-const DEMO_ENTRIES = [
-  { id: 1, name: 'Alice', subscribers: 25000, guildId: 'demo', userId: 'demo1' },
-  { id: 2, name: 'Bob', subscribers: 22000, guildId: 'demo', userId: 'demo2' },
-  { id: 3, name: 'Charlie', subscribers: 18000, guildId: 'demo', userId: 'demo3' },
-  { id: 4, name: 'Diana', subscribers: 16000, guildId: 'demo', userId: 'demo4' },
-  { id: 5, name: 'Ethan', subscribers: 12000, guildId: 'demo', userId: 'demo5' },
-];
-
-const store = globalThis.__leaderboardStore || (globalThis.__leaderboardStore = [...DEMO_ENTRIES]);
+const store = globalThis.__leaderboardStore || (globalThis.__leaderboardStore = []);
 
 function sortEntries(entries) {
   return [...entries].sort((a, b) => Number(b.subscribers ?? 0) - Number(a.subscribers ?? 0));
-}
-
-function ensureSeedData() {
-  if (store.length === 0) {
-    store.push(...DEMO_ENTRIES.map((entry, index) => ({
-      ...entry,
-      id: Date.now() + index,
-      createdAt: new Date().toISOString(),
-    })));
-  }
 }
 
 function readBody(req) {
@@ -69,7 +51,6 @@ module.exports = async function handler(req, res) {
   const isTop50 = url.pathname.endsWith('/top50') || url.pathname === '/api/leaderboard/top50';
 
   if (req.method === 'GET') {
-    ensureSeedData();
     const data = sortEntries(store);
     const payload = isTop50 ? data.slice(0, 50) : data;
     res.writeHead(200);
@@ -77,9 +58,15 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  if (req.method === 'POST') {
+  if (req.method === 'POST' || req.method === 'PUT') {
     try {
       const body = req.body && typeof req.body === 'object' ? req.body : await readBody(req);
+      if (req.method === 'PUT' && !body.userId) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'userId is required to update an entry' }));
+        return;
+      }
+
       const name = body.name || body.displayName || body.username || 'Unknown';
       const subscribers = Number(body.subscribers ?? body.subscriberCount ?? body.subs ?? 0);
 
@@ -89,9 +76,7 @@ module.exports = async function handler(req, res) {
         return;
       }
 
-      const entry = {
-        id: Date.now() + Math.floor(Math.random() * 1000),
-        createdAt: new Date().toISOString(),
+      const entryData = {
         name,
         subscribers,
         growth: Number(body.growth ?? body.growthCount ?? body.growthValue ?? 0),
@@ -99,6 +84,26 @@ module.exports = async function handler(req, res) {
         short: Number(body.short ?? body.shortCount ?? 0),
         guildId: body.guildId || null,
         userId: body.userId || null,
+      };
+
+      if (req.method === 'PUT') {
+        const index = store.findIndex((entry) => entry.userId === String(body.userId));
+        if (index === -1) {
+          res.writeHead(404);
+          res.end(JSON.stringify({ error: 'Leaderboard entry not found' }));
+          return;
+        }
+
+        store[index] = { ...store[index], ...entryData, updatedAt: new Date().toISOString() };
+        res.writeHead(200);
+        res.end(JSON.stringify({ message: 'Leaderboard entry updated', entry: store[index] }));
+        return;
+      }
+
+      const entry = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        createdAt: new Date().toISOString(),
+        ...entryData,
       };
 
       store.push(entry);
