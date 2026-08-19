@@ -4,7 +4,6 @@ const DEFAULT_API_URL =
     ? 'http://localhost:3000/api/leaderboard/top50'
     : '/api/leaderboard/top50');
 
-const FALLBACK_DB_URL = 'https://final-fysc-default-rtdb.asia-southeast1.firebasedatabase.app/.json';
 const grid = document.getElementById('grid');
 const errorEl = document.getElementById('error');
 
@@ -60,20 +59,11 @@ function showError(msg){
 }
 
 async function fetchLeaderboardData(){
-  const urls = [DEFAULT_API_URL, FALLBACK_DB_URL];
-
-  for (const url of urls) {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const data = await res.json();
-      return data;
-    } catch (err) {
-      console.warn(`Failed to fetch ${url}:`, err.message);
-    }
+  const res = await fetch(DEFAULT_API_URL, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`API returned HTTP ${res.status}`);
   }
-
-  throw new Error('Could not load leaderboard data');
+  return res.json();
 }
 
 async function load(){

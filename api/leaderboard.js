@@ -49,6 +49,10 @@ module.exports = async function handler(req, res) {
 
   const url = new URL(req.url, 'https://example.com');
   const isTop50 = url.pathname.endsWith('/top50') || url.pathname === '/api/leaderboard/top50';
+  const pathParts = url.pathname.split('/').filter(Boolean);
+  const pathUserId = pathParts[0] === 'api' && pathParts[1] === 'leaderboard' && pathParts[2] !== 'top50'
+    ? pathParts[2]
+    : null;
 
   if (req.method === 'GET') {
     const data = sortEntries(store);
@@ -61,7 +65,8 @@ module.exports = async function handler(req, res) {
   if (req.method === 'POST' || req.method === 'PUT') {
     try {
       const body = req.body && typeof req.body === 'object' ? req.body : await readBody(req);
-      if (req.method === 'PUT' && !body.userId) {
+      const userId = body.userId || pathUserId;
+      if (req.method === 'PUT' && !userId) {
         res.writeHead(400);
         res.end(JSON.stringify({ error: 'userId is required to update an entry' }));
         return;
@@ -83,11 +88,11 @@ module.exports = async function handler(req, res) {
         video: Number(body.video ?? body.videoCount ?? 0),
         short: Number(body.short ?? body.shortCount ?? 0),
         guildId: body.guildId || null,
-        userId: body.userId || null,
+        userId: userId || null,
       };
 
       if (req.method === 'PUT') {
-        const index = store.findIndex((entry) => entry.userId === String(body.userId));
+        const index = store.findIndex((entry) => String(entry.userId) === String(userId));
         if (index === -1) {
           res.writeHead(404);
           res.end(JSON.stringify({ error: 'Leaderboard entry not found' }));
