@@ -1,7 +1,47 @@
-const store = globalThis.__leaderboardStore || (globalThis.__leaderboardStore = []);
+const FIREBASE_URL = process.env.FIREBASE_DB_URL?.replace(/\/$/, '');
+const FIREBASE_PATH = 'leaderboard';
 
 function sortEntries(entries) {
   return [...entries].sort((a, b) => Number(b.subscribers ?? 0) - Number(a.subscribers ?? 0));
+}
+
+function firebaseUrl(key = '') {
+  if (!FIREBASE_URL) {
+    throw new Error('FIREBASE_DB_URL is not configured in Vercel');
+  }
+
+  const suffix = key ? `/${encodeURIComponent(key)}` : '';
+  return `${FIREBASE_URL}/${FIREBASE_PATH}${suffix}.json`;
+}
+
+async function readEntries() {
+  const response = await fetch(firebaseUrl());
+  if (!response.ok) {
+    throw new Error(`Database read failed with HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (!data) return [];
+  return Array.isArray(data) ? data.filter(Boolean) : Object.values(data);
+}
+
+async function writeEntry(entry, key) {
+  const response = await fetch(firebaseUrl(key), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Database write failed with HTTP ${response.status}`);
+  }
+
+  return entry;
+}
+
+async function addEntry(entry) {
+  const key = entry.userId || `entry-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  return writeEntry(entry, key);
 }
 
 function readBody(req) {
@@ -55,10 +95,15 @@ module.exports = async function handler(req, res) {
     : null;
 
   if (req.method === 'GET') {
-    const data = sortEntries(store);
-    const payload = isTop50 ? data.slice(0, 50) : data;
-    res.writeHead(200);
-    res.end(JSON.stringify(payload));
+    try {
+      const data = sortEntries(await readEntries());
+      const payload = isTop50 ? data.slice(0, 50) : data;
+      res.writeHead(200);
+      res.end(JSON.stringify(payload));
+    } catch (error) {
+      res.writeHead(502);
+      res.end(JSON.stringify({ error: error.message || 'Database unavailable' }));
+    }
     return;
   }
 
@@ -92,16 +137,19 @@ module.exports = async function handler(req, res) {
       };
 
       if (req.method === 'PUT') {
-        const index = store.findIndex((entry) => String(entry.userId) === String(userId));
+        const entries = await readEntries();
+        const index = entries.findIndex((entry) => String(entry.userId) === String(userId));
         if (index === -1) {
           res.writeHead(404);
           res.end(JSON.stringify({ error: 'Leaderboard entry not found' }));
           return;
         }
 
-        store[index] = { ...store[index], ...entryData, updatedAt: new Date().toISOString() };
+        const existing = entries[index];
+        const updatedEntry = { ...existing, ...entryData, updatedAt: new Date().toISOString() };
+        await writeEntry(updatedEntry, userId);
         res.writeHead(200);
-        res.end(JSON.stringify({ message: 'Leaderboard entry updated', entry: store[index] }));
+        res.end(JSON.stringify({ message: 'Leaderboard entry updated', entry: updatedEntry }));
         return;
       }
 
@@ -111,7 +159,7 @@ module.exports = async function handler(req, res) {
         ...entryData,
       };
 
-      store.push(entry);
+      await addEntry(entry);
       res.writeHead(200);
       res.end(JSON.stringify({ message: 'Leaderboard entry added', entry }));
     } catch (error) {

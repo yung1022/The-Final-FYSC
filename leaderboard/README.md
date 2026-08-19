@@ -7,8 +7,19 @@ Files:
 
 Usage:
 1. Serve the `leaderboard/` folder with a static server (or open `index.html` in a browser).
-2. The page fetches data from the Realtime Database at `https://final-fysc-default-rtdb.asia-southeast1.firebasedatabase.app/` using the REST `/.json` endpoint.
+2. The page fetches the Vercel API at `/api/leaderboard/top50`.
+
+API routes:
+- `POST /api/leaderboard` adds a user.
+- `PUT /api/leaderboard/:userId` updates an existing user.
+- `GET /api/leaderboard/top50` returns the sorted top 50.
+
+Each request should include `name`, numeric `subscribers`, `growth`, `video`, `short`, and `userId`.
+
+Persistence:
+- The API stores entries in Firebase Realtime Database under `/leaderboard`.
+- Set the Vercel environment variable `FIREBASE_DB_URL` to your Firebase database URL. If omitted, the project uses the existing FYSC database URL.
 
 Notes:
-- The script expects entries under the database root. Each entry should include a name and a numeric subscriber field (common keys: `subscriberCount`, `subscribers`, `subs`).
-- If your data is under a nested path (for example `/channels/`), update `DB_URL` in `script.js` to point at `.../channels.json`.
+- Firebase Realtime Database rules must allow the deployed API to read and write `/leaderboard`.
+- The leaderboard refreshes every 15 seconds and sorts by `subscribers` descending.
