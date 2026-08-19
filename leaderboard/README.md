@@ -11,7 +11,8 @@ Usage:
 
 API routes:
 - `POST /api/leaderboard` adds a user.
-- `PUT /api/leaderboard/:userId` updates an existing user.
+- `POST /api/leaderboard/update` updates an existing user using the same JSON body.
+- `PUT /api/leaderboard/:userId` also updates an existing user.
 - `GET /api/leaderboard/top50` returns the sorted top 50.
 
 Each request should include `name`, numeric `subscribers`, `growth`, `video`, `short`, and `userId`.

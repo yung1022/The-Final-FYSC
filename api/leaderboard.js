@@ -89,6 +89,7 @@ module.exports = async function handler(req, res) {
 
   const url = new URL(req.url, 'https://example.com');
   const isTop50 = url.pathname.endsWith('/top50') || url.pathname === '/api/leaderboard/top50';
+  const isUpdate = url.pathname === '/api/leaderboard/update';
   const pathParts = url.pathname.split('/').filter(Boolean);
   const pathUserId = pathParts[0] === 'api' && pathParts[1] === 'leaderboard' && pathParts[2] !== 'top50'
     ? pathParts[2]
@@ -111,7 +112,9 @@ module.exports = async function handler(req, res) {
     try {
       const body = req.body && typeof req.body === 'object' ? req.body : await readBody(req);
       const userId = body.userId || pathUserId;
-      if (req.method === 'PUT' && !userId) {
+      const updating = req.method === 'PUT' || isUpdate;
+
+      if (updating && !userId) {
         res.writeHead(400);
         res.end(JSON.stringify({ error: 'userId is required to update an entry' }));
         return;
@@ -136,7 +139,7 @@ module.exports = async function handler(req, res) {
         userId: userId || null,
       };
 
-      if (req.method === 'PUT') {
+      if (updating) {
         const entries = await readEntries();
         const index = entries.findIndex((entry) => String(entry.userId) === String(userId));
         if (index === -1) {
