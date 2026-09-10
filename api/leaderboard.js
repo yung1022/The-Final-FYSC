@@ -88,7 +88,6 @@ module.exports = async function handler(req, res) {
 
   const url = new URL(req.url, 'https://example.com');
   const isTop50 = url.pathname.endsWith('/top50') || url.pathname === '/api/leaderboard/top50';
-  const isUpdate = url.pathname === '/api/leaderboard/update';
   const pathParts = url.pathname.split('/').filter(Boolean);
   const pathUserId = pathParts[0] === 'api' && pathParts[1] === 'leaderboard' && pathParts[2] !== 'top50'
     ? pathParts[2]
@@ -110,8 +109,20 @@ module.exports = async function handler(req, res) {
   if (req.method === 'POST' || req.method === 'PUT') {
     try {
       const body = req.body && typeof req.body === 'object' ? req.body : await readBody(req);
-      const userId = body.userId || pathUserId;
-      const updating = req.method === 'PUT' || isUpdate;
+      const userId = pathUserId || body.userId;
+      const updating = req.method === 'PUT' && Boolean(pathUserId);
+
+      if (req.method === 'POST' && pathUserId) {
+        res.writeHead(405);
+        res.end(JSON.stringify({ error: 'Use POST /api/leaderboard to add or PUT /api/leaderboard/:userId to update' }));
+        return;
+      }
+
+      if (req.method === 'PUT' && !pathUserId) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'PUT updates require /api/leaderboard/:userId' }));
+        return;
+      }
 
       if (!userId) {
         res.writeHead(400);
@@ -142,14 +153,8 @@ module.exports = async function handler(req, res) {
         const entries = await readEntries();
         const index = entries.findIndex((entry) => String(entry.userId) === String(userId));
         if (index === -1) {
-          const newEntry = {
-            id: userId,
-            createdAt: new Date().toISOString(),
-            ...entryData,
-          };
-          await writeEntry(newEntry, userId);
-          res.writeHead(200);
-          res.end(JSON.stringify({ message: 'Leaderboard entry created', entry: newEntry }));
+          res.writeHead(404);
+          res.end(JSON.stringify({ error: 'Leaderboard entry not found; add it with POST /api/leaderboard first' }));
           return;
         }
 
@@ -162,7 +167,7 @@ module.exports = async function handler(req, res) {
       }
 
       const entry = {
-        id: Date.now() + Math.floor(Math.random() * 1000),
+        id: userId,
         createdAt: new Date().toISOString(),
         ...entryData,
       };
