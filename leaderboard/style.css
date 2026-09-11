@@ -8,12 +8,22 @@
 *{box-sizing:border-box}
 body{font-family:Inter,system-ui,Arial,sans-serif;background:#071028;color:var(--text);margin:0;padding:24px}
 main{max-width:1200px;margin:0 auto}
-h1{text-align:center;margin-bottom:18px}
+.page-header{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:18px}
+.eyebrow{color:var(--accent);font-size:11px;font-weight:800;letter-spacing:2px;margin:0 0 6px}
+h1{margin:0}
+.refresh-status{color:#8da4b8;font-size:12px;margin:8px 0 0}
+.music-panel{background:#0f1724;border:1px solid var(--cell-border);padding:10px;width:220px;border-radius:8px}
+.music-label{display:block;color:#d7e5ef;font-size:11px;font-weight:800;letter-spacing:1.5px;margin-bottom:8px}
+.music-panel iframe{display:block;border:0;width:100%;height:70px}
 .grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(10,minmax(72px,1fr));grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--gap)}
 .cell{background:linear-gradient(180deg,var(--cell-bg),#071224);border:1px solid var(--cell-border);padding:12px;border-radius:8px;min-height:72px;display:flex;flex-direction:column;justify-content:center}
 .rank{font-weight:700;color:var(--accent);font-size:14px}
 .name{font-weight:600;font-size:15px;margin-top:6px}
-.subs{font-size:13px;color:#9fb6c9;margin-top:4px}
+.subs{font-size:19px;color:#9fb6c9;margin-top:7px;font-variant-numeric:tabular-nums;letter-spacing:1px}
+.rank-refresh .cell{animation:rank-pulse .7s ease both}
+.rank-refresh .cell:nth-child(3n){animation-delay:.08s}
+.rank-refresh .cell:nth-child(3n + 1){animation-delay:.16s}
+@keyframes rank-pulse{0%{transform:translateY(8px);opacity:.35;border-color:var(--accent)}100%{transform:translateY(0);opacity:1;border-color:var(--cell-border)}}
 .empty-state{justify-content:center;align-items:center;text-align:center;color:#c9d6e6;min-height:120px;grid-column:1 / -1}
 .error{color:#ffb4b4;background:#3b0b0b;padding:12px;border-radius:6px;margin-top:12px}
 
@@ -21,5 +31,7 @@ h1{text-align:center;margin-bottom:18px}
   .grid{grid-template-columns:repeat(5,minmax(0,1fr))}
 }
 @media (max-width:600px){
+  .page-header{align-items:stretch;flex-direction:column}
+  .music-panel{width:100%}
   .grid{grid-template-rows:repeat(10,minmax(72px,1fr));grid-template-columns:repeat(2,minmax(0,1fr))}
 }

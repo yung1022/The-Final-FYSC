@@ -14,7 +14,7 @@ API routes:
 - `PUT /api/leaderboard/:userId` updates an existing user only.
 - `GET /api/leaderboard/top50` returns the sorted top 50.
 
-Each request should include `name`, numeric `subscribers`, `growth`, `video`, `short`, and `userId`.
+Each request should include `name`, numeric `subscribers`, `growth`, `video`, `short`, `offlineduration`, and `userId`. `offlineduration` must be the Unix timestamp in seconds when the data is sent.
 
 Persistence:
 - The API stores entries in Firebase Realtime Database under `/leaderboard`.
@@ -23,3 +23,4 @@ Persistence:
 Notes:
 - Firebase Realtime Database rules must allow the deployed API to read and write `/leaderboard`.
 - The leaderboard refreshes every 15 seconds and sorts by `subscribers` descending.
+- Offline growth is calculated in the browser as `growth * (1 - 0.9999 ^ (0.2 * (currentUnixTime - offlineduration)))` and is not written back to Firebase.

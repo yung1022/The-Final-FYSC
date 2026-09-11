@@ -132,10 +132,11 @@ module.exports = async function handler(req, res) {
 
       const name = body.name || body.displayName || body.username || 'Unknown';
       const subscribers = Number(body.subscribers ?? body.subscriberCount ?? body.subs ?? 0);
+      const offlineDuration = Number(body.offlineduration ?? 0);
 
-      if (!Number.isFinite(subscribers)) {
+      if (!Number.isFinite(subscribers) || !Number.isFinite(offlineDuration) || offlineDuration < 0) {
         res.writeHead(400);
-        res.end(JSON.stringify({ error: 'Invalid subscribers value' }));
+        res.end(JSON.stringify({ error: 'Invalid subscribers or offlineduration value' }));
         return;
       }
 
@@ -145,6 +146,7 @@ module.exports = async function handler(req, res) {
         growth: Number(body.growth ?? body.growthCount ?? body.growthValue ?? 0),
         video: Number(body.video ?? body.videoCount ?? 0),
         short: Number(body.short ?? body.shortCount ?? 0),
+        offlineduration: offlineDuration,
         guildId: body.guildId || null,
         userId: userId || null,
       };

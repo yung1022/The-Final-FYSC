@@ -6,10 +6,23 @@ const DEFAULT_API_URL =
 
 const grid = document.getElementById('grid');
 const errorEl = document.getElementById('error');
+const refreshStatusEl = document.getElementById('refresh-status');
+let previousRanks = new Map();
+let hasLoadedOnce = false;
 
 function fmtNumber(n){
   if(n==null) return '0';
   return Number(n).toLocaleString();
+}
+
+function calculateOfflineGrowth(growth, offlineTimestamp){
+  const x = Number(growth);
+  const timestamp = Number(offlineTimestamp);
+  const currentUnixTime = Math.floor(Date.now() / 1000);
+  const y = currentUnixTime - timestamp;
+
+  if (!Number.isFinite(x) || !Number.isFinite(timestamp) || timestamp <= 0 || !Number.isFinite(y)) return 0;
+  return x * (1 - (0.9999 ** (0.2 * Math.max(0, y))));
 }
 
 function normalizeEntry(item){
@@ -28,6 +41,8 @@ function normalizeEntry(item){
     ...entry,
     name: entry.name || entry.displayName || entry.username || 'Unknown',
     subscribers: Number.isFinite(subs) ? subs : 0,
+    growth: Number(entry.growth ?? 0),
+    offlineduration: Number(entry.offlineduration ?? 0),
   };
 }
 
@@ -44,8 +59,9 @@ function createCell(rank, item){
   nameEl.textContent = item.name || 'Unknown';
 
   const subsEl = document.createElement('div');
-  subsEl.className = 'subs';
-  subsEl.textContent = `${fmtNumber(item.subscribers)} subscribers`;
+  subsEl.className = 'subs odometer';
+  const offlineGrowth = calculateOfflineGrowth(item.growth, item.offlineduration);
+  subsEl.textContent = fmtNumber(item.subscribers + offlineGrowth);
 
   el.appendChild(rankEl);
   el.appendChild(nameEl);
@@ -78,6 +94,24 @@ async function load(){
     const normalized = items.map(normalizeEntry);
     normalized.sort((a, b) => Number(b.subscribers || 0) - Number(a.subscribers || 0));
     const top = normalized.slice(0, 50);
+
+    const currentRanks = new Map(top.map((item, index) => [String(item.userId || item.id || item.name), index + 1]));
+    const someonePassed = hasLoadedOnce && top.some((item, index) => {
+      const key = String(item.userId || item.id || item.name);
+      return previousRanks.has(key) && previousRanks.get(key) !== index + 1;
+    });
+
+    if (someonePassed) {
+      grid.classList.remove('rank-refresh');
+      void grid.offsetWidth;
+      grid.classList.add('rank-refresh');
+      refreshStatusEl.textContent = 'Rankings refreshed · someone moved up';
+    } else {
+      refreshStatusEl.textContent = `Last checked ${new Date().toLocaleTimeString()}`;
+    }
+
+    previousRanks = currentRanks;
+    hasLoadedOnce = true;
 
     grid.innerHTML = '';
 

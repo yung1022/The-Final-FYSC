@@ -8,7 +8,22 @@
   </head>
   <body>
     <main>
-      <h1>Top 50 Leaderboard</h1>
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">FYSC LIVE RANKINGS</p>
+          <h1>Top 50 Leaderboard</h1>
+          <p id="refresh-status" class="refresh-status" aria-live="polite">Live updates every 15 seconds</p>
+        </div>
+        <div class="music-panel">
+          <span class="music-label">NCS RADIO</span>
+          <iframe
+            title="NoCopyrightSounds music playlist"
+            src="https://www.youtube.com/embed?listType=user_uploads&list=NoCopyrightSounds"
+            loading="lazy"
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowfullscreen></iframe>
+        </div>
+      </header>
       <div id="grid" class="grid"></div>
       <div id="error" class="error" hidden></div>
     </main>
