@@ -130,6 +130,14 @@ module.exports = async function handler(req, res) {
         return;
       }
 
+      if (typeof userId !== 'string' || (body.guildId != null && typeof body.guildId !== 'string')) {
+        res.writeHead(400);
+        res.end(JSON.stringify({
+          error: 'userId and guildId must be JSON strings. Put Discord IDs in double quotes to prevent rounding.',
+        }));
+        return;
+      }
+
       const name = body.name || body.displayName || body.username || 'Unknown';
       const subscribers = Number(body.subscribers ?? body.subscriberCount ?? body.subs ?? 0);
       const offlineDuration = Number(body.offlineduration ?? 0);
@@ -148,7 +156,7 @@ module.exports = async function handler(req, res) {
         short: Number(body.short ?? body.shortCount ?? 0),
         offlineduration: offlineDuration,
         guildId: body.guildId || null,
-        userId: userId || null,
+        userId,
       };
 
       if (updating) {

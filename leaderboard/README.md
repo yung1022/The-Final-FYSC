@@ -14,7 +14,7 @@ API routes:
 - `PUT /api/leaderboard/:userId` updates an existing user only.
 - `GET /api/leaderboard/top50` returns the sorted top 50.
 
-Each request should include `name`, numeric `subscribers`, `growth`, `video`, `short`, `offlineduration`, and `userId`. `offlineduration` must be the Unix timestamp in seconds when the data is sent.
+Each request should include `name`, numeric `subscribers`, `growth`, `video`, `short`, `offlineduration`, and `userId`. `offlineduration` must be the Unix timestamp in seconds when the data is sent. Discord `userId` and `guildId` values must be JSON strings, not numbers, because Discord snowflake IDs can be rounded when parsed as numbers.
 
 Persistence:
 - The API stores entries in Firebase Realtime Database under `/leaderboard`.
