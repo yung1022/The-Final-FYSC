@@ -12,7 +12,7 @@ let hasLoadedOnce = false;
 
 function fmtNumber(n){
   if(n==null) return '0';
-  return Number(n).toLocaleString();
+  return Math.round(Number(n)).toLocaleString();
 }
 
 function calculateOfflineGrowth(growth, offlineTimestamp){
