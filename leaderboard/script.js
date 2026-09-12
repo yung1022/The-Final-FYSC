@@ -147,8 +147,11 @@ function createCell(rank, item, previousValue, key){
   subsEl.appendChild(createGraph(key, displayedValue));
 
   el.appendChild(rankEl);
-  el.appendChild(nameEl);
-  el.appendChild(subsEl);
+  const content = document.createElement('div');
+  content.className = 'cell-content';
+  content.appendChild(nameEl);
+  content.appendChild(subsEl);
+  el.appendChild(content);
   return el;
 }
 
