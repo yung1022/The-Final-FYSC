@@ -178,7 +178,9 @@ function createCell(rank, item, previousValue, key){
   subsEl.className = 'player-metrics';
   const displayedValue = getDisplayedSubscribers(item);
   subsEl.appendChild(createOdometer(displayedValue, previousValue));
-  subsEl.appendChild(createGraph(key, displayedValue));
+  const graphRow = document.createElement('div');
+  graphRow.className = 'graph-row';
+  graphRow.appendChild(createGraph(key, displayedValue));
 
   el.appendChild(rankEl);
   el.appendChild(imageEl);
@@ -187,6 +189,7 @@ function createCell(rank, item, previousValue, key){
   content.appendChild(nameEl);
   content.appendChild(subsEl);
   el.appendChild(content);
+  el.appendChild(graphRow);
   return el;
 }
 
