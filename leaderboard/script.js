@@ -19,14 +19,23 @@ function fmtNumber(n){
   return Math.round(Number(n)).toLocaleString();
 }
 
-function calculateOfflineGrowth(growth, offlineTimestamp){
+function calculateOfflineGrowthAt(growth, offlineTimestamp, currentUnixTime){
   const x = Number(growth);
   const timestamp = Number(offlineTimestamp);
-  const currentUnixTime = Math.floor(Date.now() / 1000);
   const y = currentUnixTime - timestamp;
 
   if (!Number.isFinite(x) || !Number.isFinite(timestamp) || timestamp <= 0 || !Number.isFinite(y)) return 0;
   return x * (1 - (0.9999 ** (0.2 * Math.max(0, y))));
+}
+
+function calculateOfflineGrowth(growth, offlineTimestamp){
+  return calculateOfflineGrowthAt(growth, offlineTimestamp, Math.floor(Date.now() / 1000));
+}
+
+function calculateOfflineGrowthPerSecond(growth, offlineTimestamp){
+  const currentUnixTime = Math.floor(Date.now() / 1000);
+  return calculateOfflineGrowthAt(growth, offlineTimestamp, currentUnixTime + 1) -
+    calculateOfflineGrowthAt(growth, offlineTimestamp, currentUnixTime);
 }
 
 function getDisplayedSubscribers(item){
@@ -183,7 +192,7 @@ function createCell(rank, item, previousValue, key){
 
 function renderGrowthLeaders(items){
   const leaders = items
-    .map((item) => ({ item, growth: calculateOfflineGrowth(item.growth, item.offlineduration) }))
+    .map((item) => ({ item, growth: calculateOfflineGrowthPerSecond(item.growth, item.offlineduration) }))
     .sort((a, b) => b.growth - a.growth)
     .slice(0, 3);
 
