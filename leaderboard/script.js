@@ -110,15 +110,21 @@ function createGraph(key, value){
 
   const values = subscriberHistory.get(key);
   const maximum = Math.max(...values, 1);
-  const graph = document.createElement('div');
-  graph.className = 'sub-graph';
+  const graph = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  graph.classList.add('sub-graph');
+  graph.setAttribute('viewBox', '0 0 100 100');
+  graph.setAttribute('preserveAspectRatio', 'none');
   graph.setAttribute('aria-label', 'Subscriber count history');
 
-  values.forEach((point) => {
-    const bar = document.createElement('span');
-    bar.style.height = `${Math.max(8, (point / maximum) * 100)}%`;
-    graph.appendChild(bar);
-  });
+  const points = values.map((point, index) => {
+    const x = values.length === 1 ? 0 : (index / (values.length - 1)) * 100;
+    const y = 100 - (point / maximum) * 82 - 9;
+    return `${x},${y}`;
+  }).join(' ');
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  line.setAttribute('points', points);
+  line.setAttribute('vector-effect', 'non-scaling-stroke');
+  graph.appendChild(line);
 
   return graph;
 }
@@ -132,7 +138,7 @@ function createCell(rank, item, previousValue, key){
   rankEl.textContent = `#${rank}`;
 
   const nameEl = document.createElement('div');
-  nameEl.className = 'name';
+  nameEl.className = 'name player-name';
   nameEl.textContent = item.name || 'Unknown';
 
   const subsEl = document.createElement('div');
