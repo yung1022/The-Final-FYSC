@@ -22,7 +22,7 @@ h1{margin:0}
 .subs{font-size:19px;color:#9fb6c9;margin-top:7px}
 .odometer{display:flex;align-items:center;height:1.25em;overflow:hidden;font-variant-numeric:tabular-nums;letter-spacing:1px}
 .odometer-digit{display:inline-block;height:1.25em;overflow:hidden;line-height:1.25em;width:.62em;text-align:center}
-.odometer-track{display:flex;flex-direction:column;transform:translateY(0);transition:transform .85s cubic-bezier(.2,.8,.2,1)}
+.odometer-track{display:flex;flex-direction:column;transform:translateY(0);transition:transform 1.8s cubic-bezier(.2,.8,.2,1)}
 .odometer-track>span{display:block;height:1.25em;line-height:1.25em}
 .odometer-separator{display:inline-block;width:.3em;line-height:1.25em;text-align:center}
 .rank-refresh .cell{animation:rank-pulse .7s ease both}
