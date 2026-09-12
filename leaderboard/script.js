@@ -74,61 +74,25 @@ function createOdometer(value, previousValue){
   odometer.className = 'odometer';
   odometer.setAttribute('aria-label', fmtNumber(value));
 
-  const formatted = Math.max(0, Math.round(Number(value) || 0)).toLocaleString();
-  const previousFormatted = previousValue == null
-    ? formatted
-    : Math.max(0, Math.round(Number(previousValue) || 0)).toLocaleString();
-  const previousDigitString = previousFormatted.replace(/,/g, '').slice(-formatted.replace(/,/g, '').length).padStart(
-    formatted.replace(/,/g, '').length,
-    ' '
-  );
-  const scheduleFrame = window.requestAnimationFrame
-    ? window.requestAnimationFrame.bind(window)
-    : (callback) => window.setTimeout(callback, 16);
-  let digitIndex = 0;
+  const target = Math.max(0, Math.round(Number(value) || 0));
+  const start = previousValue == null
+    ? target
+    : Math.max(0, Math.round(Number(previousValue) || 0));
+  odometer.textContent = String(start);
 
-  for (const character of formatted) {
-    if (character === ',') {
-      const separator = document.createElement('span');
-      separator.className = 'odometer-separator';
-      separator.textContent = ',';
-      odometer.appendChild(separator);
-      continue;
-    }
-
-    const digit = Number(character);
-    const previousDigit = Number(previousDigitString[digitIndex])
-      || (previousDigitString[digitIndex] === '0' ? 0 : digit);
-    digitIndex += 1;
-    const slot = document.createElement('span');
-    slot.className = 'odometer-digit';
-
-    const track = document.createElement('span');
-    track.className = 'odometer-track';
-    for (let number = 0; number <= 9; number++) {
-      const face = document.createElement('span');
-      face.textContent = number;
-      track.appendChild(face);
-    }
-
-    slot.appendChild(track);
-    odometer.appendChild(slot);
-    const startOffset = previousDigit * 1.25;
-    const endOffset = digit * 1.25;
-    const transition = 'transform 1800ms cubic-bezier(0.2, 0.8, 0.2, 1)';
-    track.style.transition = 'none';
-    track.style.transform = `translate3d(0, -${startOffset}em, 0)`;
-    track.offsetHeight;
-
-    scheduleFrame(() => {
-      scheduleFrame(() => {
-        track.style.transition = transition;
-        track.style.transform = `translate3d(0, -${endOffset}em, 0)`;
-        window.setTimeout(() => {
-          track.style.transform = `translate3d(0, -${endOffset}em, 0)`;
-        }, 1900);
-      });
+  if (window.Odometer) {
+    const counter = new window.Odometer({
+      el: odometer,
+      value: start,
+      format: '(,ddd)',
+      theme: 'default',
+      duration: 1800,
     });
+    if (start !== target) {
+      window.setTimeout(() => counter.update(target), 30);
+    }
+  } else {
+    odometer.textContent = fmtNumber(target);
   }
 
   return odometer;
