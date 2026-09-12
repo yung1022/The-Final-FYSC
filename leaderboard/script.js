@@ -6,12 +6,12 @@ const DEFAULT_API_URL =
 
 const grid = document.getElementById('grid');
 const errorEl = document.getElementById('error');
-const refreshStatusEl = document.getElementById('refresh-status');
 let previousRanks = new Map();
 let previousDisplayedValues = new Map();
 let hasLoadedOnce = false;
 let latestEntries = [];
 const playerTimers = new Map();
+const subscriberHistory = new Map();
 
 function fmtNumber(n){
   if(n==null) return '0';
@@ -103,7 +103,27 @@ function createOdometer(value, previousValue){
   return odometer;
 }
 
-function createCell(rank, item, previousValue){
+function createGraph(key, value){
+  const history = subscriberHistory.get(key) || [];
+  history.push(value);
+  subscriberHistory.set(key, history.slice(-16));
+
+  const values = subscriberHistory.get(key);
+  const maximum = Math.max(...values, 1);
+  const graph = document.createElement('div');
+  graph.className = 'sub-graph';
+  graph.setAttribute('aria-label', 'Subscriber count history');
+
+  values.forEach((point) => {
+    const bar = document.createElement('span');
+    bar.style.height = `${Math.max(8, (point / maximum) * 100)}%`;
+    graph.appendChild(bar);
+  });
+
+  return graph;
+}
+
+function createCell(rank, item, previousValue, key){
   const el = document.createElement('div');
   el.className = 'cell';
 
@@ -116,7 +136,9 @@ function createCell(rank, item, previousValue){
   nameEl.textContent = item.name || 'Unknown';
 
   const subsEl = document.createElement('div');
-  subsEl.appendChild(createOdometer(getDisplayedSubscribers(item), previousValue));
+  const displayedValue = getDisplayedSubscribers(item);
+  subsEl.appendChild(createOdometer(displayedValue, previousValue));
+  subsEl.appendChild(createGraph(key, displayedValue));
 
   el.appendChild(rankEl);
   el.appendChild(nameEl);
@@ -178,9 +200,6 @@ function renderLeaderboard(){
     grid.classList.remove('rank-refresh');
     void grid.offsetWidth;
     grid.classList.add('rank-refresh');
-    refreshStatusEl.textContent = 'Rankings refreshed · someone moved up';
-  } else {
-    refreshStatusEl.textContent = `Last checked ${new Date().toLocaleTimeString()}`;
   }
 
   previousRanks = currentRanks;
@@ -203,7 +222,7 @@ function renderLeaderboard(){
     const displayedValue = getDisplayedSubscribers(normalizedItem);
     const key = getPlayerKey(normalizedItem);
     currentDisplayedValues.set(key, displayedValue);
-    grid.appendChild(createCell(i + 1, normalizedItem, previousDisplayedValues.get(key)));
+    grid.appendChild(createCell(i + 1, normalizedItem, previousDisplayedValues.get(key), key));
   }
 
   previousDisplayedValues = currentDisplayedValues;
