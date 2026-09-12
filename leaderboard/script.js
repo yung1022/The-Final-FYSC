@@ -109,7 +109,9 @@ function createGraph(key, value){
   subscriberHistory.set(key, history.slice(-16));
 
   const values = subscriberHistory.get(key);
-  const maximum = Math.max(...values, 1);
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const range = maximum - minimum;
   const graph = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   graph.classList.add('sub-graph');
   graph.setAttribute('viewBox', '0 0 100 100');
@@ -118,7 +120,8 @@ function createGraph(key, value){
 
   const points = values.map((point, index) => {
     const x = values.length === 1 ? 0 : (index / (values.length - 1)) * 100;
-    const y = 100 - (point / maximum) * 82 - 9;
+    const normalized = range === 0 ? 0.5 : (point - minimum) / range;
+    const y = 91 - normalized * 82;
     return `${x},${y}`;
   }).join(' ');
   const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
@@ -142,6 +145,7 @@ function createCell(rank, item, previousValue, key){
   nameEl.textContent = item.name || 'Unknown';
 
   const subsEl = document.createElement('div');
+  subsEl.className = 'player-metrics';
   const displayedValue = getDisplayedSubscribers(item);
   subsEl.appendChild(createOdometer(displayedValue, previousValue));
   subsEl.appendChild(createGraph(key, displayedValue));
