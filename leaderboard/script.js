@@ -13,6 +13,7 @@ let hasLoadedOnce = false;
 let latestEntries = [];
 const playerTimers = new Map();
 const subscriberHistory = new Map();
+const GRAPH_MAX_POINTS = 200;
 
 function fmtNumber(n){
   if(n==null) return '0';
@@ -120,7 +121,7 @@ function createOdometer(value, previousValue){
 function createGraph(key, value){
   const history = subscriberHistory.get(key) || [];
   history.push(value);
-  subscriberHistory.set(key, history.slice(-16));
+  subscriberHistory.set(key, history.slice(-GRAPH_MAX_POINTS));
 
   const values = subscriberHistory.get(key);
   const minimum = Math.min(...values);
