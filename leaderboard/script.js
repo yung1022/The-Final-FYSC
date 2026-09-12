@@ -12,6 +12,7 @@ let previousDisplayedValues = new Map();
 let hasLoadedOnce = false;
 let latestEntries = [];
 const playerTimers = new Map();
+const playerCards = new Map();
 const subscriberHistory = new Map();
 const GRAPH_MAX_POINTS = 200;
 
@@ -161,6 +162,7 @@ function createGraph(key, value){
 function createCell(rank, item, previousValue, key){
   const el = document.createElement('div');
   el.className = 'cell';
+  el.dataset.playerKey = key;
 
   const rankEl = document.createElement('div');
   rankEl.className = 'rank';
@@ -203,6 +205,23 @@ function createCell(rank, item, previousValue, key){
   el.appendChild(content);
   el.appendChild(graphRow);
   return el;
+}
+
+function updatePlayerCard(item){
+  const key = getPlayerKey(item);
+  const card = playerCards.get(key);
+  if (!card) return;
+
+  const previousValue = previousDisplayedValues.get(key);
+  const displayedValue = getDisplayedSubscribers(item);
+  const metrics = card.querySelector('.player-metrics');
+  const graphRow = card.querySelector('.graph-row');
+
+  if (!metrics || !graphRow) return;
+
+  metrics.replaceChildren(createOdometer(displayedValue, previousValue));
+  graphRow.replaceChildren(createGraph(key, displayedValue));
+  previousDisplayedValues.set(key, displayedValue);
 }
 
 function renderGrowthLeaders(items){
@@ -255,7 +274,8 @@ function schedulePlayerCalculation(item){
   if (playerTimers.has(key)) return;
   playerTimers.set(key, setTimeout(() => {
     playerTimers.delete(key);
-    renderLeaderboard();
+    const currentItem = latestEntries.map(normalizeEntry).find((entry) => getPlayerKey(entry) === key);
+    if (currentItem) updatePlayerCard(currentItem);
     schedulePlayerCalculation(item);
   }, 5000 + Math.random() * 5000));
 }
@@ -294,6 +314,7 @@ function renderLeaderboard(){
   hasLoadedOnce = true;
 
   grid.innerHTML = '';
+  playerCards.clear();
 
   if (!top.length) {
     const empty = document.createElement('div');
@@ -310,7 +331,9 @@ function renderLeaderboard(){
     const displayedValue = getDisplayedSubscribers(normalizedItem);
     const key = getPlayerKey(normalizedItem);
     currentDisplayedValues.set(key, displayedValue);
-    grid.appendChild(createCell(i + 1, normalizedItem, previousDisplayedValues.get(key), key));
+    const card = createCell(i + 1, normalizedItem, previousDisplayedValues.get(key), key);
+    playerCards.set(key, card);
+    grid.appendChild(card);
   }
 
   previousDisplayedValues = currentDisplayedValues;
