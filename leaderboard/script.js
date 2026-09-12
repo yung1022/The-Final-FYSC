@@ -115,14 +115,18 @@ function createOdometer(value, previousValue){
     odometer.appendChild(slot);
     const startOffset = previousDigit * 1.25;
     const endOffset = digit * 1.25;
+    const transition = 'transform 1800ms cubic-bezier(0.2, 0.8, 0.2, 1)';
     track.style.transition = 'none';
     track.style.transform = `translate3d(0, -${startOffset}em, 0)`;
     track.offsetHeight;
 
     scheduleFrame(() => {
       scheduleFrame(() => {
-        track.style.transition = '';
+        track.style.transition = transition;
         track.style.transform = `translate3d(0, -${endOffset}em, 0)`;
+        window.setTimeout(() => {
+          track.style.transform = `translate3d(0, -${endOffset}em, 0)`;
+        }, 1900);
       });
     });
   }
