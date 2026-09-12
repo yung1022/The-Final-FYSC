@@ -81,6 +81,9 @@ function createOdometer(value, previousValue){
     formatted.replace(/,/g, '').length,
     ' '
   );
+  const scheduleFrame = window.requestAnimationFrame
+    ? window.requestAnimationFrame.bind(window)
+    : (callback) => window.setTimeout(callback, 16);
   let digitIndex = 0;
 
   for (const character of formatted) {
@@ -109,9 +112,17 @@ function createOdometer(value, previousValue){
 
     slot.appendChild(track);
     odometer.appendChild(slot);
-    track.style.transform = `translateY(-${previousDigit * 10}%)`;
-    requestAnimationFrame(() => {
-      track.style.transform = `translateY(-${digit * 10}%)`;
+    const startOffset = previousDigit * 1.25;
+    const endOffset = digit * 1.25;
+    track.style.transition = 'none';
+    track.style.transform = `translate3d(0, -${startOffset}em, 0)`;
+    track.offsetHeight;
+
+    scheduleFrame(() => {
+      scheduleFrame(() => {
+        track.style.transition = '';
+        track.style.transform = `translate3d(0, -${endOffset}em, 0)`;
+      });
     });
   }
 
