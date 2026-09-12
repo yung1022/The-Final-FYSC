@@ -8,6 +8,7 @@ const grid = document.getElementById('grid');
 const errorEl = document.getElementById('error');
 const refreshStatusEl = document.getElementById('refresh-status');
 let previousRanks = new Map();
+let previousDisplayedValues = new Map();
 let hasLoadedOnce = false;
 
 function fmtNumber(n){
@@ -46,12 +47,21 @@ function normalizeEntry(item){
   };
 }
 
-function createOdometer(value){
+function createOdometer(value, previousValue){
   const odometer = document.createElement('div');
   odometer.className = 'odometer';
   odometer.setAttribute('aria-label', fmtNumber(value));
 
   const formatted = Math.max(0, Math.round(Number(value) || 0)).toLocaleString();
+  const previousFormatted = previousValue == null
+    ? formatted
+    : Math.max(0, Math.round(Number(previousValue) || 0)).toLocaleString();
+  const previousDigitString = previousFormatted.replace(/,/g, '').slice(-formatted.replace(/,/g, '').length).padStart(
+    formatted.replace(/,/g, '').length,
+    ' '
+  );
+  let digitIndex = 0;
+
   for (const character of formatted) {
     if (character === ',') {
       const separator = document.createElement('span');
@@ -62,6 +72,9 @@ function createOdometer(value){
     }
 
     const digit = Number(character);
+    const previousDigit = Number(previousDigitString[digitIndex])
+      || (previousDigitString[digitIndex] === '0' ? 0 : digit);
+    digitIndex += 1;
     const slot = document.createElement('span');
     slot.className = 'odometer-digit';
 
@@ -75,6 +88,7 @@ function createOdometer(value){
 
     slot.appendChild(track);
     odometer.appendChild(slot);
+    track.style.transform = `translateY(-${previousDigit * 10}%)`;
     requestAnimationFrame(() => {
       track.style.transform = `translateY(-${digit * 10}%)`;
     });
@@ -83,7 +97,7 @@ function createOdometer(value){
   return odometer;
 }
 
-function createCell(rank, item){
+function createCell(rank, item, previousValue){
   const el = document.createElement('div');
   el.className = 'cell';
 
@@ -97,7 +111,7 @@ function createCell(rank, item){
 
   const subsEl = document.createElement('div');
   const offlineGrowth = calculateOfflineGrowth(item.growth, item.offlineduration);
-  subsEl.appendChild(createOdometer(item.subscribers + offlineGrowth));
+  subsEl.appendChild(createOdometer(item.subscribers + offlineGrowth, previousValue));
 
   el.appendChild(rankEl);
   el.appendChild(nameEl);
@@ -159,10 +173,18 @@ async function load(){
       return;
     }
 
+    const currentDisplayedValues = new Map();
     for (let i = 0; i < 50; i++) {
       const item = top[i] || { name: '—', subscribers: 0 };
-      grid.appendChild(createCell(i + 1, normalizeEntry(item)));
+      const normalizedItem = normalizeEntry(item);
+      const offlineGrowth = calculateOfflineGrowth(normalizedItem.growth, normalizedItem.offlineduration);
+      const displayedValue = normalizedItem.subscribers + offlineGrowth;
+      const key = String(normalizedItem.userId || normalizedItem.id || normalizedItem.name);
+      currentDisplayedValues.set(key, displayedValue);
+      grid.appendChild(createCell(i + 1, normalizedItem, previousDisplayedValues.get(key)));
     }
+
+    previousDisplayedValues = currentDisplayedValues;
   } catch (err) {
     console.error(err);
     showError('Failed to load leaderboard: ' + err.message);
