@@ -10,6 +10,8 @@ const refreshStatusEl = document.getElementById('refresh-status');
 let previousRanks = new Map();
 let previousDisplayedValues = new Map();
 let hasLoadedOnce = false;
+let latestEntries = [];
+const playerTimers = new Map();
 
 function fmtNumber(n){
   if(n==null) return '0';
@@ -24,6 +26,10 @@ function calculateOfflineGrowth(growth, offlineTimestamp){
 
   if (!Number.isFinite(x) || !Number.isFinite(timestamp) || timestamp <= 0 || !Number.isFinite(y)) return 0;
   return x * (1 - (0.9999 ** (0.2 * Math.max(0, y))));
+}
+
+function getDisplayedSubscribers(item){
+  return item.subscribers + calculateOfflineGrowth(item.growth, item.offlineduration);
 }
 
 function normalizeEntry(item){
@@ -110,8 +116,7 @@ function createCell(rank, item, previousValue){
   nameEl.textContent = item.name || 'Unknown';
 
   const subsEl = document.createElement('div');
-  const offlineGrowth = calculateOfflineGrowth(item.growth, item.offlineduration);
-  subsEl.appendChild(createOdometer(item.subscribers + offlineGrowth, previousValue));
+  subsEl.appendChild(createOdometer(getDisplayedSubscribers(item), previousValue));
 
   el.appendChild(rankEl);
   el.appendChild(nameEl);
@@ -132,59 +137,87 @@ async function fetchLeaderboardData(){
   return res.json();
 }
 
+function getPlayerKey(item){
+  return String(item.userId || item.id || item.name);
+}
+
+function schedulePlayerCalculation(item){
+  const key = getPlayerKey(item);
+  if (playerTimers.has(key)) return;
+  playerTimers.set(key, setTimeout(() => {
+    playerTimers.delete(key);
+    renderLeaderboard();
+    schedulePlayerCalculation(item);
+  }, 5000 + Math.random() * 5000));
+}
+
+function syncPlayerTimers(items){
+  const activeKeys = new Set(items.map(getPlayerKey));
+  for (const [key, timer] of playerTimers) {
+    if (!activeKeys.has(key)) {
+      clearTimeout(timer);
+      playerTimers.delete(key);
+    }
+  }
+  for (const item of items) schedulePlayerCalculation(item);
+}
+
+function renderLeaderboard(){
+  const normalized = latestEntries.map(normalizeEntry);
+  normalized.sort((a, b) => getDisplayedSubscribers(b) - getDisplayedSubscribers(a));
+  const top = normalized.slice(0, 50);
+  syncPlayerTimers(normalized);
+
+  const currentRanks = new Map(top.map((item, index) => [getPlayerKey(item), index + 1]));
+  const someonePassed = hasLoadedOnce && top.some((item, index) => {
+    const key = getPlayerKey(item);
+    return previousRanks.has(key) && previousRanks.get(key) !== index + 1;
+  });
+
+  if (someonePassed) {
+    grid.classList.remove('rank-refresh');
+    void grid.offsetWidth;
+    grid.classList.add('rank-refresh');
+    refreshStatusEl.textContent = 'Rankings refreshed · someone moved up';
+  } else {
+    refreshStatusEl.textContent = `Last checked ${new Date().toLocaleTimeString()}`;
+  }
+
+  previousRanks = currentRanks;
+  hasLoadedOnce = true;
+
+  grid.innerHTML = '';
+
+  if (!top.length) {
+    const empty = document.createElement('div');
+    empty.className = 'cell empty-state';
+    empty.textContent = 'No leaderboard entries yet.';
+    grid.appendChild(empty);
+    return;
+  }
+
+  const currentDisplayedValues = new Map();
+  for (let i = 0; i < 50; i++) {
+    const item = top[i] || { name: '—', subscribers: 0 };
+    const normalizedItem = normalizeEntry(item);
+    const displayedValue = getDisplayedSubscribers(normalizedItem);
+    const key = getPlayerKey(normalizedItem);
+    currentDisplayedValues.set(key, displayedValue);
+    grid.appendChild(createCell(i + 1, normalizedItem, previousDisplayedValues.get(key)));
+  }
+
+  previousDisplayedValues = currentDisplayedValues;
+}
+
 async function load(){
   try {
     const data = await fetchLeaderboardData();
-    let items = Array.isArray(data)
+    latestEntries = Array.isArray(data)
       ? data
       : data && typeof data === 'object'
         ? Object.values(data)
         : [];
-
-    const normalized = items.map(normalizeEntry);
-    normalized.sort((a, b) => Number(b.subscribers || 0) - Number(a.subscribers || 0));
-    const top = normalized.slice(0, 50);
-
-    const currentRanks = new Map(top.map((item, index) => [String(item.userId || item.id || item.name), index + 1]));
-    const someonePassed = hasLoadedOnce && top.some((item, index) => {
-      const key = String(item.userId || item.id || item.name);
-      return previousRanks.has(key) && previousRanks.get(key) !== index + 1;
-    });
-
-    if (someonePassed) {
-      grid.classList.remove('rank-refresh');
-      void grid.offsetWidth;
-      grid.classList.add('rank-refresh');
-      refreshStatusEl.textContent = 'Rankings refreshed · someone moved up';
-    } else {
-      refreshStatusEl.textContent = `Last checked ${new Date().toLocaleTimeString()}`;
-    }
-
-    previousRanks = currentRanks;
-    hasLoadedOnce = true;
-
-    grid.innerHTML = '';
-
-    if (!top.length) {
-      const empty = document.createElement('div');
-      empty.className = 'cell empty-state';
-      empty.textContent = 'No leaderboard entries yet.';
-      grid.appendChild(empty);
-      return;
-    }
-
-    const currentDisplayedValues = new Map();
-    for (let i = 0; i < 50; i++) {
-      const item = top[i] || { name: '—', subscribers: 0 };
-      const normalizedItem = normalizeEntry(item);
-      const offlineGrowth = calculateOfflineGrowth(normalizedItem.growth, normalizedItem.offlineduration);
-      const displayedValue = normalizedItem.subscribers + offlineGrowth;
-      const key = String(normalizedItem.userId || normalizedItem.id || normalizedItem.name);
-      currentDisplayedValues.set(key, displayedValue);
-      grid.appendChild(createCell(i + 1, normalizedItem, previousDisplayedValues.get(key)));
-    }
-
-    previousDisplayedValues = currentDisplayedValues;
+    renderLeaderboard();
   } catch (err) {
     console.error(err);
     showError('Failed to load leaderboard: ' + err.message);

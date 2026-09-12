@@ -22,5 +22,6 @@ Persistence:
 
 Notes:
 - Firebase Realtime Database rules must allow the deployed API to read and write `/leaderboard`.
-- The leaderboard refreshes every 15 seconds and sorts by `subscribers` descending.
+- Firebase is fetched every 15 seconds. Between fetches, each player is recalculated locally at a random interval between 5 and 10 seconds using the last fetched data and current offline growth.
+- The leaderboard sorts by displayed subscribers, including calculated offline growth.
 - Offline growth is calculated in the browser as `growth * (1 - 0.9999 ^ (0.2 * (currentUnixTime - offlineduration)))` and is not written back to Firebase.
