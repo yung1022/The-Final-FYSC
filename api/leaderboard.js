@@ -139,6 +139,7 @@ module.exports = async function handler(req, res) {
       }
 
       const name = body.name || body.displayName || body.username || 'Unknown';
+      const image = body.image || body.imageUrl || body.avatarUrl || null;
       const subscribers = Number(body.subscribers ?? body.subscriberCount ?? body.subs ?? 0);
       const offlineDuration = Number(body.offlineduration ?? 0);
 
@@ -150,6 +151,7 @@ module.exports = async function handler(req, res) {
 
       const entryData = {
         name,
+        image,
         subscribers,
         growth: Number(body.growth ?? body.growthCount ?? body.growthValue ?? 0),
         video: Number(body.video ?? body.videoCount ?? 0),

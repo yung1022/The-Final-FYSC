@@ -140,6 +140,22 @@ function createCell(rank, item, previousValue, key){
   rankEl.className = 'rank';
   rankEl.textContent = `#${rank}`;
 
+  const imageUrl = item.image || item.imageUrl || item.avatarUrl;
+  const imageEl = document.createElement(imageUrl ? 'img' : 'span');
+  imageEl.className = 'player-image';
+  imageEl.textContent = imageUrl ? '' : '?';
+  imageEl.alt = `${item.name || 'Unknown'} avatar`;
+  if (imageUrl) {
+    imageEl.loading = 'lazy';
+    imageEl.src = imageUrl;
+    imageEl.addEventListener('error', () => {
+      const fallback = document.createElement('span');
+      fallback.className = 'player-image image-fallback';
+      fallback.textContent = '?';
+      imageEl.replaceWith(fallback);
+    }, { once: true });
+  }
+
   const nameEl = document.createElement('div');
   nameEl.className = 'name player-name';
   nameEl.textContent = item.name || 'Unknown';
@@ -151,6 +167,7 @@ function createCell(rank, item, previousValue, key){
   subsEl.appendChild(createGraph(key, displayedValue));
 
   el.appendChild(rankEl);
+  el.appendChild(imageEl);
   const content = document.createElement('div');
   content.className = 'cell-content';
   content.appendChild(nameEl);
