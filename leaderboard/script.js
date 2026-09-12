@@ -46,6 +46,43 @@ function normalizeEntry(item){
   };
 }
 
+function createOdometer(value){
+  const odometer = document.createElement('div');
+  odometer.className = 'odometer';
+  odometer.setAttribute('aria-label', fmtNumber(value));
+
+  const formatted = Math.max(0, Math.round(Number(value) || 0)).toLocaleString();
+  for (const character of formatted) {
+    if (character === ',') {
+      const separator = document.createElement('span');
+      separator.className = 'odometer-separator';
+      separator.textContent = ',';
+      odometer.appendChild(separator);
+      continue;
+    }
+
+    const digit = Number(character);
+    const slot = document.createElement('span');
+    slot.className = 'odometer-digit';
+
+    const track = document.createElement('span');
+    track.className = 'odometer-track';
+    for (let number = 0; number <= 9; number++) {
+      const face = document.createElement('span');
+      face.textContent = number;
+      track.appendChild(face);
+    }
+
+    slot.appendChild(track);
+    odometer.appendChild(slot);
+    requestAnimationFrame(() => {
+      track.style.transform = `translateY(-${digit * 10}%)`;
+    });
+  }
+
+  return odometer;
+}
+
 function createCell(rank, item){
   const el = document.createElement('div');
   el.className = 'cell';
@@ -59,9 +96,8 @@ function createCell(rank, item){
   nameEl.textContent = item.name || 'Unknown';
 
   const subsEl = document.createElement('div');
-  subsEl.className = 'subs odometer';
   const offlineGrowth = calculateOfflineGrowth(item.growth, item.offlineduration);
-  subsEl.textContent = fmtNumber(item.subscribers + offlineGrowth);
+  subsEl.appendChild(createOdometer(item.subscribers + offlineGrowth));
 
   el.appendChild(rankEl);
   el.appendChild(nameEl);

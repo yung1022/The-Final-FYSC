@@ -19,7 +19,12 @@ h1{margin:0}
 .cell{background:linear-gradient(180deg,var(--cell-bg),#071224);border:1px solid var(--cell-border);padding:12px;border-radius:8px;min-height:72px;display:flex;flex-direction:column;justify-content:center}
 .rank{font-weight:700;color:var(--accent);font-size:14px}
 .name{font-weight:600;font-size:15px;margin-top:6px}
-.subs{font-size:19px;color:#9fb6c9;margin-top:7px;font-variant-numeric:tabular-nums;letter-spacing:1px}
+.subs{font-size:19px;color:#9fb6c9;margin-top:7px}
+.odometer{display:flex;align-items:center;height:1.25em;overflow:hidden;font-variant-numeric:tabular-nums;letter-spacing:1px}
+.odometer-digit{display:inline-block;height:1.25em;overflow:hidden;line-height:1.25em;width:.62em;text-align:center}
+.odometer-track{display:flex;flex-direction:column;transform:translateY(0);transition:transform .85s cubic-bezier(.2,.8,.2,1)}
+.odometer-track>span{display:block;height:1.25em;line-height:1.25em}
+.odometer-separator{display:inline-block;width:.3em;line-height:1.25em;text-align:center}
 .rank-refresh .cell{animation:rank-pulse .7s ease both}
 .rank-refresh .cell:nth-child(3n){animation-delay:.08s}
 .rank-refresh .cell:nth-child(3n + 1){animation-delay:.16s}
