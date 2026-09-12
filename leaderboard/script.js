@@ -6,6 +6,7 @@ const DEFAULT_API_URL =
 
 const grid = document.getElementById('grid');
 const errorEl = document.getElementById('error');
+const growthListEl = document.getElementById('growth-list');
 let previousRanks = new Map();
 let previousDisplayedValues = new Map();
 let hasLoadedOnce = false;
@@ -30,6 +31,10 @@ function calculateOfflineGrowth(growth, offlineTimestamp){
 
 function getDisplayedSubscribers(item){
   return item.subscribers + calculateOfflineGrowth(item.growth, item.offlineduration);
+}
+
+function fmtGrowth(n){
+  return Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 function normalizeEntry(item){
@@ -176,6 +181,34 @@ function createCell(rank, item, previousValue, key){
   return el;
 }
 
+function renderGrowthLeaders(items){
+  const leaders = items
+    .map((item) => ({ item, growth: calculateOfflineGrowth(item.growth, item.offlineduration) }))
+    .sort((a, b) => b.growth - a.growth)
+    .slice(0, 3);
+
+  growthListEl.innerHTML = '';
+  leaders.forEach(({ item, growth }, index) => {
+    const row = document.createElement('div');
+    row.className = 'growth-row';
+
+    const rank = document.createElement('span');
+    rank.className = 'growth-rank';
+    rank.textContent = `#${index + 1}`;
+
+    const name = document.createElement('span');
+    name.className = 'growth-name';
+    name.textContent = item.name || 'Unknown';
+
+    const value = document.createElement('span');
+    value.className = 'growth-value';
+    value.textContent = `+${fmtGrowth(growth)}`;
+
+    row.append(rank, name, value);
+    growthListEl.appendChild(row);
+  });
+}
+
 function showError(msg){
   errorEl.hidden = false;
   errorEl.textContent = msg;
@@ -216,6 +249,7 @@ function syncPlayerTimers(items){
 
 function renderLeaderboard(){
   const normalized = latestEntries.map(normalizeEntry);
+  renderGrowthLeaders(normalized);
   normalized.sort((a, b) => getDisplayedSubscribers(b) - getDisplayedSubscribers(a));
   const top = normalized.slice(0, 50);
   syncPlayerTimers(normalized);
