@@ -39,6 +39,20 @@ async function writeEntry(entry, key) {
   return entry;
 }
 
+async function patchEntry(entry, key) {
+  const response = await fetch(firebaseUrl(key), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Database write failed with HTTP ${response.status}`);
+  }
+
+  return entry;
+}
+
 async function addEntry(entry) {
   return writeEntry({ ...entry, id: entry.userId }, entry.userId);
 }
@@ -162,17 +176,8 @@ module.exports = async function handler(req, res) {
       };
 
       if (updating) {
-        const entries = await readEntries();
-        const index = entries.findIndex((entry) => String(entry.userId) === String(userId));
-        if (index === -1) {
-          res.writeHead(404);
-          res.end(JSON.stringify({ error: 'Leaderboard entry not found; add it with POST /api/leaderboard first' }));
-          return;
-        }
-
-        const existing = entries[index];
-        const updatedEntry = { ...existing, ...entryData, id: userId, updatedAt: new Date().toISOString() };
-        await writeEntry(updatedEntry, userId);
+        const updatedEntry = { ...entryData, id: userId, updatedAt: new Date().toISOString() };
+        await patchEntry(updatedEntry, userId);
         res.writeHead(200);
         res.end(JSON.stringify({ message: 'Leaderboard entry updated', entry: updatedEntry }));
         return;
