@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { sortByDisplayedSubscribers, topByDisplayedSubscribers, DEFAULT_TOP_LIMIT } = require('./offline-growth');
 
 const DB_PATH = path.join(__dirname, 'data.json');
 
@@ -43,13 +44,16 @@ function addEntry(entry) {
 }
 
 function getEntries() {
-  return readDB();
+  return sortByDisplayedSubscribers(readDB());
 }
 
-function getTopEntries(limit = 50) {
-  return [...readDB()]
-    .sort((a, b) => Number(b.subscribers ?? 0) - Number(a.subscribers ?? 0))
-    .slice(0, limit);
+/**
+ * Rank the whole database first, then slice: applying the offline growth
+ * formula before the cut-off is what lets a high-growth player who sits below
+ * rank 50 on stored subscribers break into the top 50.
+ */
+function getTopEntries(limit = DEFAULT_TOP_LIMIT) {
+  return topByDisplayedSubscribers(readDB(), limit);
 }
 
 function resetDB() {

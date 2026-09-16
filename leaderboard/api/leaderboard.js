@@ -1,7 +1,18 @@
+const {
+  displayedSubscribers,
+  sortByDisplayedSubscribers,
+  DEFAULT_TOP_LIMIT,
+} = require('../offline-growth');
+
 const store = globalThis.__leaderboardStore || (globalThis.__leaderboardStore = []);
 
+/**
+ * Rank by displayed subscribers (stored count plus offline growth) *before*
+ * slicing, so a high-growth player below rank 50 on stored subscribers can
+ * still reach the top 50.
+ */
 function sortEntries(entries) {
-  return [...entries].sort((a, b) => Number(b.subscribers ?? 0) - Number(a.subscribers ?? 0));
+  return sortByDisplayedSubscribers(entries);
 }
 
 function readBody(req) {
@@ -52,9 +63,12 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'GET') {
     const data = sortEntries(store);
-    const payload = isTop50 ? data.slice(0, 50) : data;
+    const payload = isTop50 ? data.slice(0, DEFAULT_TOP_LIMIT) : data;
     res.writeHead(200);
-    res.end(JSON.stringify(payload));
+    res.end(JSON.stringify(payload.map((entry) => ({
+      ...entry,
+      displayedSubscribers: displayedSubscribers(entry),
+    }))));
     return;
   }
 
@@ -78,10 +92,12 @@ module.exports = async function handler(req, res) {
 
       const entryData = {
         name,
+        image: body.image || body.imageUrl || body.avatarUrl || null,
         subscribers,
         growth: Number(body.growth ?? body.growthCount ?? body.growthValue ?? 0),
         video: Number(body.video ?? body.videoCount ?? 0),
         short: Number(body.short ?? body.shortCount ?? 0),
+        offlineduration: Number(body.offlineduration ?? 0),
         guildId: body.guildId || null,
         userId: body.userId || null,
       };

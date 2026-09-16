@@ -1,8 +1,17 @@
+const { sortByDisplayedSubscribers } = require('../lib/offline-growth');
+
 const FIREBASE_URL = process.env.FIREBASE_DB_URL?.replace(/\/$/, '');
 const FIREBASE_PATH = 'leaderboard';
+const TOP_LIMIT = 50;
 
+/**
+ * Rank every entry by its *displayed* subscriber count: the stored count plus
+ * the offline growth accrued since `offlineduration`. The growth formula has to
+ * run before the top 50 is sliced, otherwise players whose pending growth would
+ * push them into the top 50 are dropped by the raw-count ranking.
+ */
 function sortEntries(entries) {
-  return [...entries].sort((a, b) => Number(b.subscribers ?? 0) - Number(a.subscribers ?? 0));
+  return sortByDisplayedSubscribers(entries);
 }
 
 function firebaseUrl(key = '') {
@@ -110,7 +119,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const data = sortEntries(await readEntries());
-      const payload = isTop50 ? data.slice(0, 50) : data;
+      const payload = isTop50 ? data.slice(0, TOP_LIMIT) : data;
       res.writeHead(200);
       res.end(JSON.stringify(payload));
     } catch (error) {

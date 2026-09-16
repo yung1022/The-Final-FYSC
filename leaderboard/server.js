@@ -43,10 +43,6 @@ function parseBody(req) {
   });
 }
 
-function sortEntries(entries) {
-  return [...entries].sort((a, b) => Number(b.subscribers ?? 0) - Number(a.subscribers ?? 0));
-}
-
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     sendJson(res, 200, { ok: true });
@@ -57,8 +53,8 @@ const server = http.createServer(async (req, res) => {
   const pathname = requestUrl.pathname;
 
   if (pathname === '/api/leaderboard' && req.method === 'GET') {
-    const data = sortEntries(getEntries());
-    sendJson(res, 200, data);
+    // getEntries() already ranks by subscribers plus offline growth.
+    sendJson(res, 200, getEntries());
     return;
   }
 
@@ -72,16 +68,23 @@ const server = http.createServer(async (req, res) => {
     try {
       const body = await parseBody(req);
       const name = body.name || body.displayName || body.username || 'Unknown';
+      const image = body.image || body.imageUrl || body.avatarUrl || null;
       const subscribers = Number(body.subscribers ?? body.subscriberCount ?? body.subs ?? 0);
+      const offlineDuration = Number(body.offlineduration ?? 0);
 
-      if (!Number.isFinite(subscribers)) {
-        sendJson(res, 400, { error: 'Invalid subscribers value' });
+      if (!Number.isFinite(subscribers) || !Number.isFinite(offlineDuration) || offlineDuration < 0) {
+        sendJson(res, 400, { error: 'Invalid subscribers or offlineduration value' });
         return;
       }
 
       const entry = addEntry({
         name,
+        image,
         subscribers,
+        growth: Number(body.growth ?? body.growthCount ?? body.growthValue ?? 0),
+        video: Number(body.video ?? body.videoCount ?? 0),
+        short: Number(body.short ?? body.shortCount ?? 0),
+        offlineduration: offlineDuration,
         guildId: body.guildId || null,
         userId: body.userId || null,
       });

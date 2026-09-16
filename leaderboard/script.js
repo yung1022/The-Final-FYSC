@@ -21,13 +21,28 @@ function fmtNumber(n){
   return Math.round(Number(n)).toLocaleString();
 }
 
-function calculateOfflineGrowthAt(growth, offlineTimestamp, currentUnixTime){
-  const x = Number(growth);
-  const timestamp = Number(offlineTimestamp);
-  const y = currentUnixTime - timestamp;
+/**
+ * Offline growth: growth * (1 - 0.9999 ^ (0.2 * (now - offlineduration))).
+ *
+ * This MUST stay identical to `offlineGrowthAt` in `lib/offline-growth.js` and
+ * `leaderboard/offline-growth.js`. The server now applies this formula to every
+ * entry before slicing the top 50, so the client only re-applies it to animate
+ * the live counters — any drift here would reorder the board against the API.
+ */
+const OFFLINE_GROWTH_DECAY_BASE = 0.9999;
+const OFFLINE_GROWTH_TIME_SCALE = 0.2;
 
-  if (!Number.isFinite(x) || !Number.isFinite(timestamp) || timestamp <= 0 || !Number.isFinite(y)) return 0;
-  return x * (1 - (0.9999 ** (0.2 * Math.max(0, y))));
+function calculateOfflineGrowthAt(growth, offlineTimestamp, currentUnixTime){
+  const growthValue = Number(growth);
+  const offlineAt = Number(offlineTimestamp);
+  const now = Number(currentUnixTime);
+
+  if (!Number.isFinite(growthValue) || growthValue === 0) return 0;
+  if (!Number.isFinite(offlineAt) || offlineAt <= 0) return 0;
+  if (!Number.isFinite(now)) return 0;
+
+  const elapsedSeconds = Math.max(0, now - offlineAt);
+  return growthValue * (1 - (OFFLINE_GROWTH_DECAY_BASE ** (OFFLINE_GROWTH_TIME_SCALE * elapsedSeconds)));
 }
 
 function calculateOfflineGrowth(growth, offlineTimestamp){
