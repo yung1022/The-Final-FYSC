@@ -7,6 +7,10 @@ const DEFAULT_API_URL =
 const grid = document.getElementById('grid');
 const errorEl = document.getElementById('error');
 const growthListEl = document.getElementById('growth-list');
+const mediaCounterEl = document.getElementById('media-counter');
+const mediaCounterGraphEl = document.getElementById('media-counter-graph');
+const counterHistory = [];
+let mediaCounterValue = 0;
 let previousRanks = new Map();
 let previousDisplayedValues = new Map();
 let hasLoadedOnce = false;
@@ -61,6 +65,49 @@ function getDisplayedSubscribers(item){
 
 function fmtGrowth(n){
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function renderMediaCounter(counter) {
+  const value = Math.max(0, Math.round(Number(counter?.value) || 0));
+  const previous = mediaCounterValue;
+  mediaCounterValue = value;
+  mediaCounterEl.setAttribute('aria-label', fmtNumber(value));
+
+  if (window.Odometer) {
+    if (!mediaCounterEl.odometer) {
+      mediaCounterEl.textContent = String(previous);
+      mediaCounterEl.odometer = new window.Odometer({
+        el: mediaCounterEl,
+        value: previous,
+        format: '(,ddd)',
+        theme: 'default',
+        duration: 1800,
+      });
+    }
+    mediaCounterEl.odometer.update(value);
+  } else {
+    mediaCounterEl.textContent = fmtNumber(value);
+  }
+
+  const incomingHistory = Array.isArray(counter?.history)
+    ? counter.history.map((point) => Number(point?.value)).filter(Number.isFinite)
+    : [];
+  counterHistory.splice(0, counterHistory.length, ...incomingHistory.slice(-GRAPH_MAX_POINTS));
+  if (!counterHistory.length) counterHistory.push(value);
+
+  const minimum = Math.min(...counterHistory);
+  const maximum = Math.max(...counterHistory);
+  const range = maximum - minimum;
+  const points = counterHistory.map((point, index) => {
+    const x = counterHistory.length === 1 ? 0 : (index / (counterHistory.length - 1)) * 100;
+    const normalized = range === 0 ? 0.5 : (point - minimum) / range;
+    return `${x},${36 - normalized * 30}`;
+  }).join(' ');
+  mediaCounterGraphEl.replaceChildren();
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  line.setAttribute('points', points);
+  line.setAttribute('vector-effect', 'non-scaling-stroke');
+  mediaCounterGraphEl.appendChild(line);
 }
 
 function normalizeEntry(item){
@@ -248,6 +295,15 @@ async function fetchLeaderboardData(){
   return res.json();
 }
 
+async function fetchMediaCounter(){
+  const counterUrl = DEFAULT_API_URL.replace(/\/top50\/?$/, '/counter');
+  const res = await fetch(counterUrl, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`Counter API returned HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 function getPlayerKey(item){
   return String(item.userId || item.id || item.name);
 }
@@ -324,7 +380,8 @@ function renderLeaderboard(){
 
 async function load(){
   try {
-    const data = await fetchLeaderboardData();
+    const [data, counter] = await Promise.all([fetchLeaderboardData(), fetchMediaCounter()]);
+    renderMediaCounter(counter);
     latestEntries = Array.isArray(data)
       ? data
       : data && typeof data === 'object'

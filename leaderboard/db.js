@@ -3,6 +3,7 @@ const path = require('path');
 const { sortByDisplayedSubscribers, topByDisplayedSubscribers, DEFAULT_TOP_LIMIT } = require('./offline-growth');
 
 const DB_PATH = path.join(__dirname, 'data.json');
+const COUNTER_PATH = path.join(__dirname, 'counter.json');
 
 function ensureFile() {
   if (!fs.existsSync(DB_PATH)) {
@@ -28,6 +29,34 @@ function readDB() {
 function writeDB(entries) {
   ensureFile();
   fs.writeFileSync(DB_PATH, JSON.stringify(entries, null, 2) + '\n', 'utf8');
+}
+
+function readCounter() {
+  if (!fs.existsSync(COUNTER_PATH)) {
+    fs.writeFileSync(COUNTER_PATH, JSON.stringify({ value: 0, history: [] }, null, 2) + '\n', 'utf8');
+  }
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(COUNTER_PATH, 'utf8'));
+    return {
+      value: Number(parsed.value) || 0,
+      history: Array.isArray(parsed.history) ? parsed.history : [],
+    };
+  } catch (error) {
+    return { value: 0, history: [] };
+  }
+}
+
+function writeCounter(counter) {
+  fs.writeFileSync(COUNTER_PATH, JSON.stringify(counter, null, 2) + '\n', 'utf8');
+}
+
+function incrementCounter() {
+  const counter = readCounter();
+  counter.value += 1;
+  counter.history = [...counter.history, { value: counter.value, timestamp: new Date().toISOString() }].slice(-200);
+  writeCounter(counter);
+  return counter;
 }
 
 function addEntry(entry) {
@@ -64,6 +93,8 @@ function resetDB() {
 module.exports = {
   addEntry,
   getEntries,
+  readCounter,
+  incrementCounter,
   getTopEntries,
   readDB,
   writeDB,

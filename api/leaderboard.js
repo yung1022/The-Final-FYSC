@@ -2,7 +2,16 @@ const { sortByDisplayedSubscribers } = require('../lib/offline-growth');
 
 const FIREBASE_URL = process.env.FIREBASE_DB_URL?.replace(/\/$/, '');
 const FIREBASE_PATH = 'leaderboard';
+const COUNTER_PATH = 'counter';
 const TOP_LIMIT = 50;
+
+function databaseUrl(path) {
+  if (!FIREBASE_URL) {
+    throw new Error('FIREBASE_DB_URL is not configured in Vercel');
+  }
+
+  return `${FIREBASE_URL}/${path}.json`;
+}
 
 /**
  * Rank every entry by its *displayed* subscriber count: the stored count plus
@@ -15,12 +24,57 @@ function sortEntries(entries) {
 }
 
 function firebaseUrl(key = '') {
-  if (!FIREBASE_URL) {
-    throw new Error('FIREBASE_DB_URL is not configured in Vercel');
+  const suffix = key ? `/${encodeURIComponent(key)}` : '';
+  return databaseUrl(`${FIREBASE_PATH}${suffix}`);
+}
+
+function counterUrl(key = '') {
+  const suffix = key ? `/${encodeURIComponent(key)}` : '';
+  return databaseUrl(`${COUNTER_PATH}${suffix}`);
+}
+
+async function readCounter() {
+  const response = await fetch(counterUrl());
+  if (!response.ok) {
+    throw new Error(`Counter read failed with HTTP ${response.status}`);
   }
 
-  const suffix = key ? `/${encodeURIComponent(key)}` : '';
-  return `${FIREBASE_URL}/${FIREBASE_PATH}${suffix}.json`;
+  const data = await response.json();
+  return {
+    value: Number(data?.value) || 0,
+    history: Array.isArray(data?.history)
+      ? data.history
+      : data?.history && typeof data.history === 'object'
+        ? Object.values(data.history)
+        : [],
+  };
+}
+
+async function incrementCounter() {
+  const response = await fetch(counterUrl('value'), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ '.sv': { increment: 1 } }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Counter increment failed with HTTP ${response.status}`);
+  }
+
+  const committedValue = Number(await response.json()) || 0;
+  const point = { value: committedValue, timestamp: new Date().toISOString() };
+  const historyResponse = await fetch(counterUrl('history'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(point),
+  });
+
+  if (!historyResponse.ok) {
+    throw new Error(`Counter history write failed with HTTP ${historyResponse.status}`);
+  }
+
+  const current = await readCounter();
+  return { value: committedValue, history: current.history };
 }
 
 async function readEntries() {
@@ -116,6 +170,19 @@ module.exports = async function handler(req, res) {
     ? pathParts[2]
     : null;
 
+  const isCounter = url.pathname.endsWith('/counter') || url.pathname === '/api/leaderboard/counter';
+
+  if (req.method === 'GET' && isCounter) {
+    try {
+      res.writeHead(200);
+      res.end(JSON.stringify(await readCounter()));
+    } catch (error) {
+      res.writeHead(502);
+      res.end(JSON.stringify({ error: error.message || 'Counter unavailable' }));
+    }
+    return;
+  }
+
   if (req.method === 'GET') {
     try {
       const data = sortEntries(await readEntries());
@@ -136,8 +203,9 @@ module.exports = async function handler(req, res) {
       const updating = req.method === 'PUT' && Boolean(pathUserId);
 
       if (req.method === 'POST' && pathUserId) {
-        res.writeHead(405);
-        res.end(JSON.stringify({ error: 'Use POST /api/leaderboard to add or PUT /api/leaderboard/:userId to update' }));
+        const counter = await incrementCounter();
+        res.writeHead(200);
+        res.end(JSON.stringify({ message: 'Media counter incremented', counter }));
         return;
       }
 

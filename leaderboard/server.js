@@ -1,6 +1,6 @@
 const http = require('http');
 const { URL } = require('url');
-const { addEntry, getEntries, getTopEntries, resetDB } = require('./db');
+const { addEntry, getEntries, getTopEntries, resetDB, readCounter, incrementCounter } = require('./db');
 
 const PORT = process.env.PORT || 3000;
 
@@ -55,6 +55,16 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/leaderboard' && req.method === 'GET') {
     // getEntries() already ranks by subscribers plus offline growth.
     sendJson(res, 200, getEntries());
+    return;
+  }
+
+  if (pathname === '/api/leaderboard/counter' && req.method === 'GET') {
+    sendJson(res, 200, readCounter());
+    return;
+  }
+
+  if (pathname.startsWith('/api/leaderboard/') && pathname !== '/api/leaderboard/top50' && pathname !== '/api/leaderboard/counter' && req.method === 'POST') {
+    sendJson(res, 200, { message: 'Media counter incremented', counter: incrementCounter() });
     return;
   }
 
