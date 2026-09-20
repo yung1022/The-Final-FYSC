@@ -143,31 +143,46 @@ function createGraph(key, value){
   return graph;
 }
 
-function getGrowthPerSecond(item){
-  const growth = getMdmGain(item);
-  const offlineAt = Number(item.offlineduration);
-  if (!growth) return 0;
-  if (!Number.isFinite(offlineAt) || offlineAt <= 0) return growth;
+function displayedSubscribersAt(item, unixTime){
+  return item.subscribers + calculateOfflineGrowthAt(
+    item.growth,
+    item.offlineduration,
+    unixTime,
+  );
+}
 
-  const elapsedSeconds = Math.max(1, Math.floor(Date.now() / 1000) - offlineAt);
-  const instantaneousRate = calculateOfflineGrowthPerSecond(growth, offlineAt);
-  const averageRate = growth / elapsedSeconds;
-  return Math.max(instantaneousRate, averageRate);
+function calculateCrossoverSeconds(item, target){
+  const now = Math.floor(Date.now() / 1000);
+  const currentDifference = displayedSubscribersAt(item, now) - displayedSubscribersAt(target, now);
+  if (currentDifference >= 0) return Infinity;
+
+  // Find a future time where the lower player catches the target using the
+  // same offline-growth formula, then binary-search to the first crossing.
+  const differenceAt = (seconds) => displayedSubscribersAt(item, now + seconds) -
+    displayedSubscribersAt(target, now + seconds);
+  let upperBound = 1;
+  const maxSearchSeconds = 10 * 365 * 24 * 60 * 60;
+  while (upperBound < maxSearchSeconds && differenceAt(upperBound) < 0) {
+    upperBound *= 2;
+  }
+  if (differenceAt(upperBound) < 0) return Infinity;
+
+  let lowerBound = 0;
+  while (upperBound - lowerBound > 1) {
+    const midpoint = Math.floor((lowerBound + upperBound) / 2);
+    if (differenceAt(midpoint) >= 0) upperBound = midpoint;
+    else lowerBound = midpoint;
+  }
+  return upperBound;
 }
 
 function getEtaSeconds(item, items = []){
-  const suppliedEta = Number(item.eta ?? item.etaSeconds ?? item.etaTime ?? item.timeToNext);
-  if (Number.isFinite(suppliedEta) && suppliedEta >= 0) return suppliedEta;
-
   const current = getDisplayedSubscribers(item);
   const target = [...items]
     .filter((candidate) => candidate !== item && getDisplayedSubscribers(candidate) > current)
     .sort((a, b) => getDisplayedSubscribers(a) - getDisplayedSubscribers(b))[0];
-  const growthPerSecond = getGrowthPerSecond(item);
-  if (!target || growthPerSecond <= 0) return Infinity;
-
-  const gap = getDisplayedSubscribers(target) - current;
-  return Math.max(0, gap / growthPerSecond);
+  if (!target) return Infinity;
+  return calculateCrossoverSeconds(item, target);
 }
 
 function selectBattleChannels(items){
@@ -186,9 +201,10 @@ function selectBattleChannels(items){
 
 function formatEta(seconds){
   if (!Number.isFinite(seconds)) return '—';
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.round(seconds % 60);
+  const roundedSeconds = Math.max(1, Math.ceil(seconds));
+  if (roundedSeconds < 60) return `${roundedSeconds}s`;
+  const minutes = Math.floor(roundedSeconds / 60);
+  const remainingSeconds = roundedSeconds % 60;
   return `${minutes}m ${remainingSeconds}s`;
 }
 
@@ -201,8 +217,12 @@ function renderBattle(items){
   }
 
   const [first, second] = channels;
-  const sharedGap = Math.abs(getDisplayedSubscribers(first) - getDisplayedSubscribers(second));
-  const sharedEta = Math.min(getEtaSeconds(first, items), getEtaSeconds(second, items));
+  const firstValue = getDisplayedSubscribers(first);
+  const secondValue = getDisplayedSubscribers(second);
+  const sharedGap = Math.abs(firstValue - secondValue);
+  const lower = firstValue < secondValue ? first : second;
+  const higher = firstValue < secondValue ? second : first;
+  const sharedEta = calculateCrossoverSeconds(lower, higher);
   const summary = document.createElement('div');
   summary.className = 'battle-summary';
   summary.textContent = `Gap ${fmtNumber(sharedGap)} · ETA ${formatEta(sharedEta)}`;
