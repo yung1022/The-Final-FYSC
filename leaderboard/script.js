@@ -7,11 +7,7 @@ const DEFAULT_API_URL =
 const grid = document.getElementById('grid');
 const errorEl = document.getElementById('error');
 const growthListEl = document.getElementById('growth-list');
-const mediaCounterEl = document.getElementById('media-counter');
-const mediaCounterGraphEl = document.getElementById('media-counter-graph');
 const battleContentEl = document.getElementById('battle-content');
-const counterHistory = [];
-let mediaCounterValue = 0;
 let previousRanks = new Map();
 let previousDisplayedValues = new Map();
 let hasLoadedOnce = false;
@@ -66,49 +62,6 @@ function getDisplayedSubscribers(item){
 
 function fmtGrowth(n){
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
-function renderMediaCounter(counter) {
-  const value = Math.max(0, Math.round(Number(counter?.value) || 0));
-  const previous = mediaCounterValue;
-  mediaCounterValue = value;
-  mediaCounterEl.setAttribute('aria-label', fmtNumber(value));
-
-  if (window.Odometer) {
-    if (!mediaCounterEl.odometer) {
-      mediaCounterEl.textContent = String(previous);
-      mediaCounterEl.odometer = new window.Odometer({
-        el: mediaCounterEl,
-        value: previous,
-        format: '(,ddd)',
-        theme: 'default',
-        duration: 1800,
-      });
-    }
-    mediaCounterEl.odometer.update(value);
-  } else {
-    mediaCounterEl.textContent = fmtNumber(value);
-  }
-
-  const incomingHistory = Array.isArray(counter?.history)
-    ? counter.history.map((point) => Number(point?.value)).filter(Number.isFinite)
-    : [];
-  counterHistory.splice(0, counterHistory.length, ...incomingHistory.slice(-GRAPH_MAX_POINTS));
-  if (!counterHistory.length) counterHistory.push(value);
-
-  const minimum = Math.min(...counterHistory);
-  const maximum = Math.max(...counterHistory);
-  const range = maximum - minimum;
-  const points = counterHistory.map((point, index) => {
-    const x = counterHistory.length === 1 ? 0 : (index / (counterHistory.length - 1)) * 100;
-    const normalized = range === 0 ? 0.5 : (point - minimum) / range;
-    return `${x},${36 - normalized * 30}`;
-  }).join(' ');
-  mediaCounterGraphEl.replaceChildren();
-  const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-  line.setAttribute('points', points);
-  line.setAttribute('vector-effect', 'non-scaling-stroke');
-  mediaCounterGraphEl.appendChild(line);
 }
 
 function normalizeEntry(item){
@@ -196,19 +149,15 @@ function getEtaSeconds(item){
 }
 
 function selectBattleChannels(items){
-  const candidates = items.filter((item) => getEtaSeconds(item) !== Infinity);
-  const maxEta = Math.max(...candidates.map(getEtaSeconds), 1);
-  const maxSubscribers = Math.max(...candidates.map(getDisplayedSubscribers), 1);
-
-  return candidates
-    .map((item) => ({
-      item,
-      score: (getEtaSeconds(item) / maxEta) * 0.65 +
-        (1 - getDisplayedSubscribers(item) / maxSubscribers) * 0.35,
-    }))
-    .sort((a, b) => a.score - b.score)
-    .slice(0, 2)
-    .map(({ item }) => item);
+  const withEta = items.filter((item) => getEtaSeconds(item) !== Infinity);
+  const candidates = withEta.length >= 2 ? withEta : items;
+  return [...candidates]
+    .sort((a, b) => {
+      const etaDifference = getEtaSeconds(a) - getEtaSeconds(b);
+      if (Number.isFinite(etaDifference) && etaDifference !== 0) return etaDifference;
+      return getDisplayedSubscribers(b) - getDisplayedSubscribers(a);
+    })
+    .slice(0, 2);
 }
 
 function formatEta(seconds){
@@ -223,7 +172,7 @@ function renderBattle(items){
   const channels = selectBattleChannels(items);
   battleContentEl.replaceChildren();
   if (channels.length < 2) {
-    battleContentEl.textContent = 'Waiting for two ETA channels…';
+    battleContentEl.textContent = 'Waiting for two channels…';
     return;
   }
 
@@ -250,24 +199,12 @@ function getMdmGain(item){
 
 function createMdmFire(item){
   const fire = document.createElement('span');
-  fire.className = 'mdm-fire';
   const gain = getMdmGain(item);
-  const particleCount = Math.min(18, Math.max(gain, gain ? 1 : 0));
-  const mediaParticles = ['🔥', '✨', '🎬', '🎥', '📈'];
+  const level = gain >= 1000 ? 'fire-blazing' : gain >= 100 ? 'fire-hot' : gain >= 10 ? 'fire-warm' : 'fire-cold';
+  fire.className = `mdm-fire ${level}`;
+  fire.textContent = '🔥';
   fire.setAttribute('aria-label', `MDM fire: ${fmtNumber(gain)} subscribers gained`);
   fire.title = `${fmtNumber(gain)} subscriber${gain === 1 ? '' : 's'} gained`;
-
-  for (let index = 0; index < particleCount; index += 1) {
-    const particle = document.createElement('span');
-    particle.className = 'fire-particle';
-    particle.textContent = mediaParticles[index % mediaParticles.length];
-    particle.style.setProperty('--fire-x', `${((index * 7) % 15) - 7}px`);
-    particle.style.setProperty('--fire-y', `${-8 - ((index * 5) % 18)}px`);
-    particle.style.setProperty('--fire-delay', `${(index % 6) * -0.12}s`);
-    particle.setAttribute('aria-hidden', 'true');
-    fire.appendChild(particle);
-  }
-
   return fire;
 }
 
@@ -279,8 +216,7 @@ function createCell(rank, item, previousValue, key){
   const rankEl = document.createElement('div');
   rankEl.className = 'rank';
   rankEl.textContent = `#${rank}`;
-
-  const fireEl = createMdmFire(item);
+  rankEl.appendChild(createMdmFire(item));
 
   const imageUrl = item.image || item.imageUrl || item.avatarUrl;
   const imageEl = document.createElement(imageUrl ? 'img' : 'span');
@@ -311,7 +247,6 @@ function createCell(rank, item, previousValue, key){
   graphRow.appendChild(createGraph(key, displayedValue));
 
   el.appendChild(rankEl);
-  el.appendChild(fireEl);
   el.appendChild(imageEl);
   const content = document.createElement('div');
   content.className = 'cell-content';
@@ -376,15 +311,6 @@ async function fetchLeaderboardData(){
   const res = await fetch(DEFAULT_API_URL, { cache: 'no-store' });
   if (!res.ok) {
     throw new Error(`API returned HTTP ${res.status}`);
-  }
-  return res.json();
-}
-
-async function fetchMediaCounter(){
-  const counterUrl = DEFAULT_API_URL.replace(/\/top50\/?$/, '/counter');
-  const res = await fetch(counterUrl, { cache: 'no-store' });
-  if (!res.ok) {
-    throw new Error(`Counter API returned HTTP ${res.status}`);
   }
   return res.json();
 }
@@ -466,8 +392,7 @@ function renderLeaderboard(){
 
 async function load(){
   try {
-    const [data, counter] = await Promise.all([fetchLeaderboardData(), fetchMediaCounter()]);
-    renderMediaCounter(counter);
+    const data = await fetchLeaderboardData();
     latestEntries = Array.isArray(data)
       ? data
       : data && typeof data === 'object'
