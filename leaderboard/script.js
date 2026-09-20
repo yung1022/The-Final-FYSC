@@ -143,21 +143,45 @@ function createGraph(key, value){
   return graph;
 }
 
-function getEtaSeconds(item){
-  const eta = Number(item.eta ?? item.etaSeconds ?? item.etaTime ?? item.timeToNext ?? Infinity);
-  return Number.isFinite(eta) && eta >= 0 ? eta : Infinity;
+function getGrowthPerSecond(item){
+  const growth = getMdmGain(item);
+  const offlineAt = Number(item.offlineduration);
+  if (!growth) return 0;
+  if (!Number.isFinite(offlineAt) || offlineAt <= 0) return growth;
+
+  const elapsedSeconds = Math.max(1, Math.floor(Date.now() / 1000) - offlineAt);
+  const instantaneousRate = calculateOfflineGrowthPerSecond(growth, offlineAt);
+  const averageRate = growth / elapsedSeconds;
+  return Math.max(instantaneousRate, averageRate);
+}
+
+function getEtaSeconds(item, items = []){
+  const suppliedEta = Number(item.eta ?? item.etaSeconds ?? item.etaTime ?? item.timeToNext);
+  if (Number.isFinite(suppliedEta) && suppliedEta >= 0) return suppliedEta;
+
+  const current = getDisplayedSubscribers(item);
+  const target = [...items]
+    .filter((candidate) => candidate !== item && getDisplayedSubscribers(candidate) > current)
+    .sort((a, b) => getDisplayedSubscribers(a) - getDisplayedSubscribers(b))[0];
+  const growthPerSecond = getGrowthPerSecond(item);
+  if (!target || growthPerSecond <= 0) return Infinity;
+
+  const gap = getDisplayedSubscribers(target) - current;
+  return Math.max(0, gap / growthPerSecond);
 }
 
 function selectBattleChannels(items){
-  const withEta = items.filter((item) => getEtaSeconds(item) !== Infinity);
-  const candidates = withEta.length >= 2 ? withEta : items;
-  return [...candidates]
-    .sort((a, b) => {
-      const etaDifference = getEtaSeconds(a) - getEtaSeconds(b);
-      if (Number.isFinite(etaDifference) && etaDifference !== 0) return etaDifference;
-      return getDisplayedSubscribers(b) - getDisplayedSubscribers(a);
-    })
-    .slice(0, 2);
+  const candidates = items
+    .map((item) => ({ item, eta: getEtaSeconds(item, items) }))
+    .filter(({ eta }) => Number.isFinite(eta));
+  const pool = candidates.length >= 2
+    ? candidates
+    : items.map((item) => ({ item, eta: Infinity }));
+
+  return pool
+    .sort((a, b) => a.eta - b.eta || getDisplayedSubscribers(b.item) - getDisplayedSubscribers(a.item))
+    .slice(0, 2)
+    .map(({ item }) => item);
 }
 
 function formatEta(seconds){
@@ -178,7 +202,7 @@ function renderBattle(items){
 
   const [first, second] = channels;
   const sharedGap = Math.abs(getDisplayedSubscribers(first) - getDisplayedSubscribers(second));
-  const sharedEta = Math.min(getEtaSeconds(first), getEtaSeconds(second));
+  const sharedEta = Math.min(getEtaSeconds(first, items), getEtaSeconds(second, items));
   const summary = document.createElement('div');
   summary.className = 'battle-summary';
   summary.textContent = `Gap ${fmtNumber(sharedGap)} · ETA ${formatEta(sharedEta)}`;
@@ -200,6 +224,8 @@ function getMdmGain(item){
 function createMdmFire(item){
   const fire = document.createElement('span');
   const gain = getMdmGain(item);
+  if (gain < 500000) return null;
+
   const level = gain >= 25000000
     ? 'fire-red'
     : gain >= 8000000
@@ -222,7 +248,8 @@ function createCell(rank, item, previousValue, key){
   const rankEl = document.createElement('div');
   rankEl.className = 'rank';
   rankEl.textContent = `#${rank}`;
-  rankEl.appendChild(createMdmFire(item));
+  const fire = createMdmFire(item);
+  if (fire) rankEl.appendChild(fire);
 
   const imageUrl = item.image || item.imageUrl || item.avatarUrl;
   const imageEl = document.createElement(imageUrl ? 'img' : 'span');
