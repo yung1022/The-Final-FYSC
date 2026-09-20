@@ -247,6 +247,8 @@ module.exports = async function handler(req, res) {
         growth: Number(body.growth ?? body.growthCount ?? body.growthValue ?? 0),
         video: Number(body.video ?? body.videoCount ?? 0),
         short: Number(body.short ?? body.shortCount ?? 0),
+        eta: body.eta ?? body.etaSeconds ?? body.etaTime ?? null,
+        gap: Number(body.gap ?? body.gapCount ?? body.subscriberGap ?? 0),
         offlineduration: offlineDuration,
         guildId: body.guildId || null,
         userId,

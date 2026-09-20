@@ -9,6 +9,7 @@ const errorEl = document.getElementById('error');
 const growthListEl = document.getElementById('growth-list');
 const mediaCounterEl = document.getElementById('media-counter');
 const mediaCounterGraphEl = document.getElementById('media-counter-graph');
+const battleContentEl = document.getElementById('battle-content');
 const counterHistory = [];
 let mediaCounterValue = 0;
 let previousRanks = new Map();
@@ -189,6 +190,87 @@ function createGraph(key, value){
   return graph;
 }
 
+function getEtaSeconds(item){
+  const eta = Number(item.eta ?? item.etaSeconds ?? item.etaTime ?? item.timeToNext ?? Infinity);
+  return Number.isFinite(eta) && eta >= 0 ? eta : Infinity;
+}
+
+function selectBattleChannels(items){
+  const candidates = items.filter((item) => getEtaSeconds(item) !== Infinity);
+  const maxEta = Math.max(...candidates.map(getEtaSeconds), 1);
+  const maxSubscribers = Math.max(...candidates.map(getDisplayedSubscribers), 1);
+
+  return candidates
+    .map((item) => ({
+      item,
+      score: (getEtaSeconds(item) / maxEta) * 0.65 +
+        (1 - getDisplayedSubscribers(item) / maxSubscribers) * 0.35,
+    }))
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 2)
+    .map(({ item }) => item);
+}
+
+function formatEta(seconds){
+  if (!Number.isFinite(seconds)) return '—';
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
+function renderBattle(items){
+  const channels = selectBattleChannels(items);
+  battleContentEl.replaceChildren();
+  if (channels.length < 2) {
+    battleContentEl.textContent = 'Waiting for two ETA channels…';
+    return;
+  }
+
+  const [first, second] = channels;
+  const sharedGap = Math.abs(getDisplayedSubscribers(first) - getDisplayedSubscribers(second));
+  const sharedEta = Math.min(getEtaSeconds(first), getEtaSeconds(second));
+  const summary = document.createElement('div');
+  summary.className = 'battle-summary';
+  summary.textContent = `Gap ${fmtNumber(sharedGap)} · ETA ${formatEta(sharedEta)}`;
+
+  const firstRow = document.createElement('div');
+  firstRow.className = 'battle-row battle-winner';
+  firstRow.textContent = `${first.name || 'Unknown'} · ${fmtNumber(getDisplayedSubscribers(first))} subs`;
+  const secondRow = document.createElement('div');
+  secondRow.className = 'battle-row';
+  secondRow.textContent = `${second.name || 'Unknown'} · ${fmtNumber(getDisplayedSubscribers(second))} subs`;
+  battleContentEl.append(summary, firstRow, secondRow);
+}
+
+function getMdmGain(item){
+  const gain = Number(item.growth ?? item.growthCount ?? item.growthValue ?? 0);
+  return Number.isFinite(gain) ? Math.max(0, Math.round(gain)) : 0;
+}
+
+function createMdmFire(item){
+  const fire = document.createElement('span');
+  fire.className = 'mdm-fire';
+  const gain = getMdmGain(item);
+  const particleCount = Math.min(18, Math.max(gain, gain ? 1 : 0));
+  const mediaParticles = ['🔥', '✨', '🎬', '🎥', '📈'];
+  fire.setAttribute('aria-label', `MDM fire: ${fmtNumber(gain)} subscribers gained`);
+  fire.title = `${fmtNumber(gain)} subscriber${gain === 1 ? '' : 's'} gained`;
+
+  for (let index = 0; index < particleCount; index += 1) {
+    const particle = document.createElement('span');
+    particle.className = 'fire-particle';
+    particle.textContent = mediaParticles[index % mediaParticles.length];
+    particle.style.setProperty('--fire-x', `${((index * 7) % 15) - 7}px`);
+    particle.style.setProperty('--fire-y', `${-8 - ((index * 5) % 18)}px`);
+    particle.style.setProperty('--fire-delay', `${(index % 6) * -0.12}s`);
+    particle.setAttribute('aria-hidden', 'true');
+    fire.appendChild(particle);
+  }
+
+  return fire;
+}
+
 function createCell(rank, item, previousValue, key){
   const el = document.createElement('div');
   el.className = 'cell';
@@ -197,6 +279,8 @@ function createCell(rank, item, previousValue, key){
   const rankEl = document.createElement('div');
   rankEl.className = 'rank';
   rankEl.textContent = `#${rank}`;
+
+  const fireEl = createMdmFire(item);
 
   const imageUrl = item.image || item.imageUrl || item.avatarUrl;
   const imageEl = document.createElement(imageUrl ? 'img' : 'span');
@@ -227,6 +311,7 @@ function createCell(rank, item, previousValue, key){
   graphRow.appendChild(createGraph(key, displayedValue));
 
   el.appendChild(rankEl);
+  el.appendChild(fireEl);
   el.appendChild(imageEl);
   const content = document.createElement('div');
   content.className = 'cell-content';
@@ -332,6 +417,7 @@ function syncPlayerTimers(items){
 
 function renderLeaderboard(){
   const normalized = latestEntries.map(normalizeEntry);
+  renderBattle(normalized);
   renderGrowthLeaders(normalized);
   normalized.sort((a, b) => getDisplayedSubscribers(b) - getDisplayedSubscribers(a));
   const top = normalized.slice(0, 50);
