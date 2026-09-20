@@ -4,6 +4,13 @@ const DEFAULT_API_URL =
     ? 'http://localhost:3000/api/leaderboard/top50'
     : '/api/leaderboard/top50');
 
+const offlineGrowth = window.OfflineGrowth;
+const battleBoard = window.BattleBoard;
+
+if (!offlineGrowth || !battleBoard) {
+  throw new Error('offline-growth.js and battle-board.js must be loaded before script.js');
+}
+
 const grid = document.getElementById('grid');
 const errorEl = document.getElementById('error');
 const growthListEl = document.getElementById('growth-list');
@@ -16,6 +23,11 @@ const playerTimers = new Map();
 const playerCards = new Map();
 const subscriberHistory = new Map();
 const GRAPH_MAX_POINTS = 200;
+const TOP_CELL_COUNT = 50;
+const BATTLE_REFRESH_MS = 1000;
+const BATTLE_ROW_WINNER_CLASS = 'battle-winner';
+const BATTLE_ROW_CHASER_CLASS = 'battle-chaser';
+const BATTLE_FOCUS_CLASS = 'battle-focus';
 
 function fmtNumber(n){
   if(n==null) return '0';
@@ -23,41 +35,16 @@ function fmtNumber(n){
 }
 
 /**
- * Offline growth: growth * (1 - 0.9999 ^ (0.2 * (now - offlineduration))).
- *
- * This MUST stay identical to `offlineGrowthAt` in `lib/offline-growth.js` and
- * `leaderboard/offline-growth.js`. The server now applies this formula to every
- * entry before slicing the top 50, so the client only re-applies it to animate
- * the live counters — any drift here would reorder the board against the API.
+ * Displayed subscribers, i.e. the stored count plus offline growth. The formula
+ * itself lives in `offline-growth.js`, which is the same copy the battle ETAs
+ * are solved from, so the counters and the battle board can never disagree.
  */
-const OFFLINE_GROWTH_DECAY_BASE = 0.9999;
-const OFFLINE_GROWTH_TIME_SCALE = 0.2;
-
-function calculateOfflineGrowthAt(growth, offlineTimestamp, currentUnixTime){
-  const growthValue = Number(growth);
-  const offlineAt = Number(offlineTimestamp);
-  const now = Number(currentUnixTime);
-
-  if (!Number.isFinite(growthValue) || growthValue === 0) return 0;
-  if (!Number.isFinite(offlineAt) || offlineAt <= 0) return 0;
-  if (!Number.isFinite(now)) return 0;
-
-  const elapsedSeconds = Math.max(0, now - offlineAt);
-  return growthValue * (1 - (OFFLINE_GROWTH_DECAY_BASE ** (OFFLINE_GROWTH_TIME_SCALE * elapsedSeconds)));
-}
-
-function calculateOfflineGrowth(growth, offlineTimestamp){
-  return calculateOfflineGrowthAt(growth, offlineTimestamp, Math.floor(Date.now() / 1000));
+function getDisplayedSubscribers(item){
+  return offlineGrowth.displayedSubscribers(item);
 }
 
 function calculateOfflineGrowthPerSecond(growth, offlineTimestamp){
-  const currentUnixTime = Math.floor(Date.now() / 1000);
-  return calculateOfflineGrowthAt(growth, offlineTimestamp, currentUnixTime + 1) -
-    calculateOfflineGrowthAt(growth, offlineTimestamp, currentUnixTime);
-}
-
-function getDisplayedSubscribers(item){
-  return item.subscribers + calculateOfflineGrowth(item.growth, item.offlineduration);
+  return offlineGrowth.offlineGrowthPerSecond(growth, offlineTimestamp);
 }
 
 function fmtGrowth(n){
@@ -143,97 +130,79 @@ function createGraph(key, value){
   return graph;
 }
 
-function displayedSubscribersAt(item, unixTime){
-  return item.subscribers + calculateOfflineGrowthAt(
-    item.growth,
-    item.offlineduration,
-    unixTime,
-  );
+function rankEntries(entries, limit = TOP_CELL_COUNT){
+  return entries
+    .map(normalizeEntry)
+    .sort((a, b) => getDisplayedSubscribers(b) - getDisplayedSubscribers(a))
+    .slice(0, limit);
 }
 
-function calculateCrossoverSeconds(item, target){
-  const now = Math.floor(Date.now() / 1000);
-  const currentDifference = displayedSubscribersAt(item, now) - displayedSubscribersAt(target, now);
-  if (currentDifference >= 0) return Infinity;
+function createBattleRow(duel, side){
+  const isDefender = side === 'defender';
+  const item = isDefender ? duel.defender : duel.chaser;
+  const rank = isDefender ? duel.defenderRank : duel.chaserRank;
+  const value = isDefender ? duel.defenderValue : duel.chaserValue;
 
-  // Find a future time where the lower player catches the target using the
-  // same offline-growth formula, then binary-search to the first crossing.
-  const differenceAt = (seconds) => displayedSubscribersAt(item, now + seconds) -
-    displayedSubscribersAt(target, now + seconds);
-  let upperBound = 1;
-  const maxSearchSeconds = 10 * 365 * 24 * 60 * 60;
-  while (upperBound < maxSearchSeconds && differenceAt(upperBound) < 0) {
-    upperBound *= 2;
-  }
-  if (differenceAt(upperBound) < 0) return Infinity;
+  const row = document.createElement('div');
+  row.className = `battle-row ${isDefender ? BATTLE_ROW_WINNER_CLASS : BATTLE_ROW_CHASER_CLASS}`;
 
-  let lowerBound = 0;
-  while (upperBound - lowerBound > 1) {
-    const midpoint = Math.floor((lowerBound + upperBound) / 2);
-    if (differenceAt(midpoint) >= 0) upperBound = midpoint;
-    else lowerBound = midpoint;
-  }
-  return upperBound;
+  const rankEl = document.createElement('span');
+  rankEl.className = 'battle-rank';
+  rankEl.textContent = `#${rank}`;
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'battle-name';
+  nameEl.textContent = item.name || 'Unknown';
+
+  const valueEl = document.createElement('span');
+  valueEl.className = 'battle-value';
+  valueEl.textContent = fmtNumber(value);
+
+  row.append(rankEl, nameEl, valueEl);
+  return row;
 }
 
-function getEtaSeconds(item, items = []){
-  const current = getDisplayedSubscribers(item);
-  const target = [...items]
-    .filter((candidate) => candidate !== item && getDisplayedSubscribers(candidate) > current)
-    .sort((a, b) => getDisplayedSubscribers(a) - getDisplayedSubscribers(b))[0];
-  if (!target) return Infinity;
-  return calculateCrossoverSeconds(item, target);
-}
-
-function selectBattleChannels(items){
-  const candidates = items
-    .map((item) => ({ item, eta: getEtaSeconds(item, items) }))
-    .filter(({ eta }) => Number.isFinite(eta));
-  const pool = candidates.length >= 2
-    ? candidates
-    : items.map((item) => ({ item, eta: Infinity }));
-
-  return pool
-    .sort((a, b) => a.eta - b.eta || getDisplayedSubscribers(b.item) - getDisplayedSubscribers(a.item))
-    .slice(0, 2)
-    .map(({ item }) => item);
-}
-
-function formatEta(seconds){
-  if (!Number.isFinite(seconds)) return '—';
-  const roundedSeconds = Math.max(1, Math.ceil(seconds));
-  if (roundedSeconds < 60) return `${roundedSeconds}s`;
-  const minutes = Math.floor(roundedSeconds / 60);
-  const remainingSeconds = roundedSeconds % 60;
-  return `${minutes}m ${remainingSeconds}s`;
-}
-
-function renderBattle(items){
-  const channels = selectBattleChannels(items);
+function renderBattlePanel(duel){
   battleContentEl.replaceChildren();
-  if (channels.length < 2) {
+
+  if (!duel) {
     battleContentEl.textContent = 'Waiting for two channels…';
     return;
   }
 
-  const [first, second] = channels;
-  const firstValue = getDisplayedSubscribers(first);
-  const secondValue = getDisplayedSubscribers(second);
-  const sharedGap = Math.abs(firstValue - secondValue);
-  const lower = firstValue < secondValue ? first : second;
-  const higher = firstValue < secondValue ? second : first;
-  const sharedEta = calculateCrossoverSeconds(lower, higher);
+  const crosses = Number.isFinite(duel.etaSeconds);
   const summary = document.createElement('div');
-  summary.className = 'battle-summary';
-  summary.textContent = `Gap ${fmtNumber(sharedGap)} · ETA ${formatEta(sharedEta)}`;
+  summary.className = crosses ? 'battle-summary' : 'battle-summary battle-summary-idle';
+  summary.textContent = `Gap ${fmtNumber(duel.gap)} · ETA ${battleBoard.formatEta(duel.etaSeconds)}`;
 
-  const firstRow = document.createElement('div');
-  firstRow.className = 'battle-row battle-winner';
-  firstRow.textContent = `${first.name || 'Unknown'} · ${fmtNumber(getDisplayedSubscribers(first))} subs`;
-  const secondRow = document.createElement('div');
-  secondRow.className = 'battle-row';
-  secondRow.textContent = `${second.name || 'Unknown'} · ${fmtNumber(getDisplayedSubscribers(second))} subs`;
-  battleContentEl.append(summary, firstRow, secondRow);
+  battleContentEl.append(
+    summary,
+    createBattleRow(duel, 'defender'),
+    createBattleRow(duel, 'chaser'),
+  );
+}
+
+function highlightBattleCells(duel){
+  for (const card of playerCards.values()) card.classList.remove(BATTLE_FOCUS_CLASS);
+  if (!duel) return;
+
+  for (const item of [duel.defender, duel.chaser]) {
+    const card = playerCards.get(getPlayerKey(item));
+    if (card) card.classList.add(BATTLE_FOCUS_CLASS);
+  }
+}
+
+/**
+ * Channels only battle the channel in the rank connected to them: rank 1 owns
+ * the top seat, then 2 battles 3, 4 battles 5, and so on. `battle-board.js`
+ * works out which of those duels is closest to resolving; this only paints it.
+ */
+function renderBattleBoard(){
+  if (!hasLoadedOnce && !latestEntries.length) return;
+
+  const duel = battleBoard.selectBattleDuel(rankEntries(latestEntries));
+  renderBattlePanel(duel);
+  highlightBattleCells(duel);
 }
 
 function getMdmGain(item){
@@ -396,10 +365,9 @@ function syncPlayerTimers(items){
 
 function renderLeaderboard(){
   const normalized = latestEntries.map(normalizeEntry);
-  renderBattle(normalized);
   renderGrowthLeaders(normalized);
   normalized.sort((a, b) => getDisplayedSubscribers(b) - getDisplayedSubscribers(a));
-  const top = normalized.slice(0, 50);
+  const top = normalized.slice(0, TOP_CELL_COUNT);
   syncPlayerTimers(normalized);
 
   const currentRanks = new Map(top.map((item, index) => [getPlayerKey(item), index + 1]));
@@ -425,11 +393,12 @@ function renderLeaderboard(){
     empty.className = 'cell empty-state';
     empty.textContent = 'No leaderboard entries yet.';
     grid.appendChild(empty);
+    renderBattleBoard();
     return;
   }
 
   const currentDisplayedValues = new Map();
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < TOP_CELL_COUNT; i++) {
     const item = top[i] || { name: '—', subscribers: 0 };
     const normalizedItem = normalizeEntry(item);
     const displayedValue = getDisplayedSubscribers(normalizedItem);
@@ -441,6 +410,7 @@ function renderLeaderboard(){
   }
 
   previousDisplayedValues = currentDisplayedValues;
+  renderBattleBoard();
 }
 
 async function load(){
@@ -460,3 +430,4 @@ async function load(){
 
 load();
 setInterval(load, 15000);
+setInterval(renderBattleBoard, BATTLE_REFRESH_MS);
