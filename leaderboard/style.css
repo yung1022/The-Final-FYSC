@@ -19,10 +19,10 @@ main{margin:0 auto;width:min(100%,1600px)}
 .battle-row{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c9d6e6}
 .battle-winner{color:#75e0a2;font-weight:700}
 .mdm-fire{display:grid;place-items:center;width:22px;height:100%;font-size:16px;line-height:1;position:relative;z-index:2}
-.mdm-fire.fire-cold{filter:hue-rotate(150deg) saturate(.75);opacity:.65}
-.mdm-fire.fire-warm{filter:hue-rotate(35deg) saturate(1.25)}
-.mdm-fire.fire-hot{filter:hue-rotate(-15deg) saturate(1.5) drop-shadow(0 0 3px #ff8a00)}
-.mdm-fire.fire-blazing{filter:hue-rotate(-35deg) saturate(2) drop-shadow(0 0 5px #ff2d00)}
+.mdm-fire.fire-blue{filter:hue-rotate(180deg) saturate(1.15) drop-shadow(0 0 3px #168cff)}
+.mdm-fire.fire-yellow{filter:hue-rotate(25deg) saturate(1.4) drop-shadow(0 0 3px #ffd21f)}
+.mdm-fire.fire-orange{filter:hue-rotate(5deg) saturate(1.7) drop-shadow(0 0 3px #ff8a00)}
+.mdm-fire.fire-red{filter:hue-rotate(-20deg) saturate(2) drop-shadow(0 0 5px #ff2d00)}
 h1{font-size:clamp(18px,2vw,30px);line-height:1;margin:0}
 .music-label{display:block;color:#d7e5ef;font-size:9px;font-weight:800;letter-spacing:1px;margin-bottom:3px}
 .hidden-ncs-player{position:absolute;width:1px;height:1px;border:0;opacity:0;pointer-events:none}
@@ -40,7 +40,7 @@ h1{font-size:clamp(18px,2vw,30px);line-height:1;margin:0}
 .player-metrics{display:block;width:100%;min-width:0}
 .name{font-weight:600;font-size:clamp(8px,1vw,13px);line-height:1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;min-width:0;flex:0 0 auto}
 .subs{font-size:clamp(11px,1.35vw,18px);line-height:1;margin-top:2px;min-height:1em;overflow:hidden}
-.odometer{display:block;height:1.1em;overflow:hidden;font-variant-numeric:tabular-nums;letter-spacing:.5px;line-height:1.1em}
+.odometer{display:block;height:1.1em;overflow:hidden;font-variant-numeric:tabular-nums;letter-spacing:.5px;line-height:1.1em;position:relative;z-index:3}
 .graph-row{position:absolute;z-index:1;left:35px;right:5px;top:3px;bottom:3px;overflow:hidden;pointer-events:none;opacity:.4}
 .sub-graph{display:block;width:100%;height:100%;margin:0;overflow:visible}
 .sub-graph polyline{fill:none;stroke:var(--accent);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;transition:all .6s ease}

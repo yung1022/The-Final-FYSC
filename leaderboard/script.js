@@ -200,7 +200,13 @@ function getMdmGain(item){
 function createMdmFire(item){
   const fire = document.createElement('span');
   const gain = getMdmGain(item);
-  const level = gain >= 1000 ? 'fire-blazing' : gain >= 100 ? 'fire-hot' : gain >= 10 ? 'fire-warm' : 'fire-cold';
+  const level = gain >= 25000000
+    ? 'fire-red'
+    : gain >= 8000000
+      ? 'fire-orange'
+      : gain >= 2500000
+        ? 'fire-yellow'
+        : 'fire-blue';
   fire.className = `mdm-fire ${level}`;
   fire.textContent = '🔥';
   fire.setAttribute('aria-label', `MDM fire: ${fmtNumber(gain)} subscribers gained`);
