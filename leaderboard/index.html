@@ -34,6 +34,26 @@
       <div id="grid" class="grid"></div>
       <div id="error" class="error" hidden></div>
     </main>
+    <script>
+  window.LEADERBOARD_GROWTH_EFFECTS = [
+    {
+      minGrowth: 500000,
+      maxGrowth: 2500000,
+      type: 'image',
+      src: '/assets/fire-blue.gif',
+      className: 'fire-blue',
+      label: 'blue fire',
+      fit: 'cover'
+    },
+    {
+      minGrowth: 2500000,
+      type: 'emoji',
+      value: '🔥',
+      className: 'fire-red',
+      label: 'red fire'
+    }
+  ];
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/odometer.min.js"></script>
     <script src="offline-growth.js"></script>
     <script src="battle-board.js"></script>
