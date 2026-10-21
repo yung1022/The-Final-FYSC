@@ -29,6 +29,49 @@ const BATTLE_ROW_WINNER_CLASS = 'battle-winner';
 const BATTLE_ROW_CHASER_CLASS = 'battle-chaser';
 const BATTLE_FOCUS_CLASS = 'battle-focus';
 
+const DEFAULT_GROWTH_EFFECTS = [
+  { minGrowth: 500000, maxGrowth: 2500000, type: 'emoji', value: '🔥', className: 'fire-blue', label: 'blue fire' },
+  { minGrowth: 2500000, maxGrowth: 8000000, type: 'emoji', value: '🔥', className: 'fire-yellow', label: 'yellow fire' },
+  { minGrowth: 8000000, maxGrowth: 25000000, type: 'emoji', value: '🔥', className: 'fire-orange', label: 'orange fire' },
+  { minGrowth: 25000000, type: 'emoji', value: '🔥', className: 'fire-red', label: 'red fire' },
+];
+
+function getConfiguredGrowthEffects() {
+  const configured = Array.isArray(window.LEADERBOARD_GROWTH_EFFECTS)
+    ? window.LEADERBOARD_GROWTH_EFFECTS
+    : [];
+
+  if (!configured.length) {
+    return DEFAULT_GROWTH_EFFECTS;
+  }
+
+  return configured
+    .map((effect, index) => ({
+      minGrowth: Number(effect.minGrowth ?? effect.min ?? effect.at ?? 0),
+      maxGrowth: Number(effect.maxGrowth ?? effect.max ?? Number.POSITIVE_INFINITY),
+      type: effect.type || effect.kind || 'emoji',
+      value: effect.value || effect.emoji || effect.character || '🔥',
+      src: effect.src || effect.image || effect.video || effect.url || '',
+      className: effect.className || effect.class || effect.level || '',
+      label: effect.label || effect.name || `growth effect ${index + 1}`,
+      autoplay: effect.autoplay !== undefined ? Boolean(effect.autoplay) : true,
+      loop: effect.loop !== undefined ? Boolean(effect.loop) : true,
+      muted: effect.muted !== undefined ? Boolean(effect.muted) : true,
+      poster: effect.poster || '',
+      fit: effect.fit || 'cover',
+    }))
+    .filter((effect) => Number.isFinite(effect.minGrowth) && (effect.type === 'emoji' || effect.src));
+}
+
+function getActiveGrowthEffect(gain) {
+  const growth = Number(gain) || 0;
+  const effects = getConfiguredGrowthEffects();
+
+  return effects
+    .filter((effect) => growth >= effect.minGrowth && growth < effect.maxGrowth)
+    .sort((a, b) => b.minGrowth - a.minGrowth)[0] || null;
+}
+
 function fmtNumber(n){
   if(n==null) return '0';
   return Math.round(Number(n)).toLocaleString();
@@ -213,19 +256,40 @@ function getMdmGain(item){
 function createMdmFire(item){
   const fire = document.createElement('span');
   const gain = getMdmGain(item);
-  if (gain < 500000) return null;
+  const effect = getActiveGrowthEffect(gain);
+  if (!effect) return null;
 
-  const level = gain >= 25000000
-    ? 'fire-red'
-    : gain >= 8000000
-      ? 'fire-orange'
-      : gain >= 2500000
-        ? 'fire-yellow'
-        : 'fire-blue';
-  fire.className = `mdm-fire ${level}`;
-  fire.textContent = '🔥';
-  fire.setAttribute('aria-label', `MDM fire: ${fmtNumber(gain)} subscribers gained`);
+  fire.className = 'mdm-fire';
+  if (effect.className) fire.classList.add(effect.className);
+  fire.setAttribute('aria-label', `${effect.label}: ${fmtNumber(gain)} subscribers gained`);
   fire.title = `${fmtNumber(gain)} subscriber${gain === 1 ? '' : 's'} gained`;
+
+  if (effect.type === 'image' || effect.type === 'video') {
+    const media = document.createElement(effect.type === 'video' ? 'video' : 'img');
+    media.className = effect.type === 'video' ? 'mdm-fire-media mdm-fire-video' : 'mdm-fire-media mdm-fire-image';
+    if (effect.className) media.classList.add(effect.className);
+
+    media.src = effect.src;
+    media.alt = effect.label;
+    media.setAttribute('aria-hidden', 'true');
+    if (effect.type === 'video') {
+      media.autoplay = effect.autoplay;
+      media.muted = effect.muted;
+      media.loop = effect.loop;
+      media.playsInline = true;
+      media.preload = 'auto';
+      if (effect.poster) media.poster = effect.poster;
+      if (effect.fit) media.style.objectFit = effect.fit;
+    }
+    fire.appendChild(media);
+    return fire;
+  }
+
+  const emoji = document.createElement('span');
+  emoji.className = 'mdm-fire-emoji';
+  if (effect.className) emoji.classList.add(effect.className);
+  emoji.textContent = effect.value || '🔥';
+  fire.appendChild(emoji);
   return fire;
 }
 
@@ -236,7 +300,12 @@ function createCell(rank, item, previousValue, key){
 
   const rankEl = document.createElement('div');
   rankEl.className = 'rank';
-  rankEl.textContent = `#${rank}`;
+
+  const rankNumber = document.createElement('span');
+  rankNumber.className = 'rank-number';
+  rankNumber.textContent = `#${rank}`;
+  rankEl.appendChild(rankNumber);
+
   const fire = createMdmFire(item);
   if (fire) rankEl.appendChild(fire);
 
