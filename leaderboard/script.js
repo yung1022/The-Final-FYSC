@@ -29,20 +29,13 @@ const BATTLE_ROW_WINNER_CLASS = 'battle-winner';
 const BATTLE_ROW_CHASER_CLASS = 'battle-chaser';
 const BATTLE_FOCUS_CLASS = 'battle-focus';
 
-const DEFAULT_GROWTH_EFFECTS = [
-  { minGrowth: 500000, maxGrowth: 2500000, type: 'emoji', value: '🔥', className: 'fire-blue', label: 'blue fire' },
-  { minGrowth: 2500000, maxGrowth: 8000000, type: 'emoji', value: '🔥', className: 'fire-yellow', label: 'yellow fire' },
-  { minGrowth: 8000000, maxGrowth: 25000000, type: 'emoji', value: '🔥', className: 'fire-orange', label: 'orange fire' },
-  { minGrowth: 25000000, type: 'emoji', value: '🔥', className: 'fire-red', label: 'red fire' },
-];
-
 function getConfiguredGrowthEffects() {
   const configured = Array.isArray(window.LEADERBOARD_GROWTH_EFFECTS)
     ? window.LEADERBOARD_GROWTH_EFFECTS
     : [];
 
   if (!configured.length) {
-    return DEFAULT_GROWTH_EFFECTS;
+    return [];
   }
 
   return configured
@@ -66,6 +59,8 @@ function getConfiguredGrowthEffects() {
 function getActiveGrowthEffect(gain) {
   const growth = Number(gain) || 0;
   const effects = getConfiguredGrowthEffects();
+
+  if (!effects.length) return null;
 
   return effects
     .filter((effect) => growth >= effect.minGrowth && growth < effect.maxGrowth)
