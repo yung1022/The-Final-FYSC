@@ -109,7 +109,7 @@
   <body>
     <main class="panel">
       <h1>YouTube Connect</h1>
-      <p>Generate a secure connect code, then send <strong>!connect {code}</strong> in YouTube chat. The API will save the YouTube channel ID as <strong>ytid</strong> in Firebase without removing existing fields.</p>
+      <p>Generate a connect code for this Discord user. Nightbot will send the YouTube channel ID later; the API stores it in <strong>ytid</strong> without removing any existing fields.</p>
 
       <form id="connect-form">
         <div class="field">
@@ -122,12 +122,7 @@
           <input id="guildId" name="guildId" placeholder="987654321098765432" />
         </div>
 
-        <div class="field">
-          <label for="channelId">YouTube Channel ID</label>
-          <input id="channelId" name="channelId" placeholder="UCxxxxxxxxxxxxxxxxxxxx" required />
-        </div>
-
-        <button type="submit">Generate & Connect</button>
+        <button type="submit">Generate connect code</button>
       </form>
 
       <div id="result" class="result" aria-live="polite"></div>
@@ -146,46 +141,26 @@
 
         const userId = document.getElementById('userId').value.trim();
         const guildId = document.getElementById('guildId').value.trim();
-        const channelId = document.getElementById('channelId').value.trim();
 
-        if (!userId || !channelId) {
+        if (!userId) {
           result.classList.add('visible');
-          result.innerHTML = '<div class="error">Discord User ID and YouTube Channel ID are required.</div>';
+          result.innerHTML = '<div class="error">Discord User ID is required.</div>';
           return;
         }
 
         const connectId = makeConnectId();
         const apiUrl = `${location.origin}/api/connect/${connectId}`;
 
-        try {
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId,
-              guildId: guildId || null,
-              channel: channelId,
-            }),
-          });
-
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.error || 'Failed to create connection');
-          }
-
-          result.classList.add('visible');
-          result.innerHTML = `
-            <div class="success"><strong>Connected successfully.</strong></div>
-            <div><strong>Command:</strong></div>
-            <div class="code">!connect ${connectId}</div>
-            <div><strong>API URL:</strong></div>
-            <div class="api-url">${apiUrl}?channel=${encodeURIComponent(channelId)}</div>
-            <div class="small">This stores the YouTube channel ID as <strong>ytid</strong> in Firebase and keeps all other fields intact.</div>
-          `;
-        } catch (error) {
-          result.classList.add('visible');
-          result.innerHTML = `<div class="error">${error.message}</div>`;
-        }
+        result.classList.add('visible');
+        result.innerHTML = `
+          <div class="success"><strong>Connect code generated.</strong></div>
+          <div><strong>Command:</strong></div>
+          <div class="code">!connect ${connectId}</div>
+          <div><strong>API endpoint:</strong></div>
+          <div class="api-url">${apiUrl}?channel=YOUTUBE_CHANNEL_ID</div>
+          <div class="small">Nightbot will send the YouTube channel ID later. The API will store it as <strong>ytid</strong> and keep all other fields intact.</div>
+          <div class="small">Discord user: <strong>${userId}</strong>${guildId ? ` · Guild: <strong>${guildId}</strong>` : ''}</div>
+        `;
       });
     </script>
   </body>
