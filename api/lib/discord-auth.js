@@ -26,12 +26,16 @@ function serializeSession(session) {
 
 function deserializeSession(rawValue) {
   if (!rawValue) return null;
-  const [payload, signature] = String(rawValue).split('.');
-  if (!payload || !signature) return null;
-  if (signature !== signValue(payload)) return null;
 
   try {
-    return JSON.parse(base64UrlDecode(payload));
+    const [payload, signature] = String(rawValue).split('.');
+    if (!payload || !signature) return null;
+    if (signature !== signValue(payload)) return null;
+
+    const decoded = base64UrlDecode(payload);
+    const parsed = JSON.parse(decoded);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
   } catch (error) {
     return null;
   }
@@ -46,7 +50,13 @@ function parseCookies(rawCookieHeader = '') {
     if (index === -1) continue;
     const key = pair.slice(0, index).trim();
     const value = pair.slice(index + 1).trim();
-    if (key) cookies[key] = decodeURIComponent(value);
+    if (key) {
+      try {
+        cookies[key] = decodeURIComponent(value);
+      } catch (error) {
+        cookies[key] = value;
+      }
+    }
   }
 
   return cookies;
