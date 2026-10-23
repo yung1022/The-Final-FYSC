@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YouTube Connect</title>
+    <style>
+      :root {
+        --bg: #08131d;
+        --panel: #101f2e;
+        --panel-border: #1e3348;
+        --text: #edf7ff;
+        --muted: #a7c0d9;
+        --accent: #5fd4ff;
+        --success: #8fe6b4;
+        --danger: #ff8b7d;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, Arial, sans-serif;
+      }
+      .panel {
+        width: min(92vw, 760px);
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 24px 60px rgba(0,0,0,.35);
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(24px, 4vw, 38px);
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      form {
+        display: grid;
+        gap: 18px;
+        margin-top: 22px;
+      }
+      .field {
+        display: grid;
+        gap: 8px;
+      }
+      label {
+        font-weight: 700;
+      }
+      input {
+        width: 100%;
+        border: 1px solid var(--panel-border);
+        border-radius: 10px;
+        background: rgba(0,0,0,.25);
+        color: var(--text);
+        padding: 12px 14px;
+        font-size: 16px;
+      }
+      button {
+        border: 0;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--accent), #4a82ff);
+        color: #03141f;
+        font-size: 16px;
+        font-weight: 800;
+        padding: 12px 16px;
+        cursor: pointer;
+      }
+      .result {
+        display: none;
+        margin-top: 20px;
+        padding: 16px;
+        border-radius: 12px;
+        border: 1px solid var(--panel-border);
+        background: rgba(255,255,255,.02);
+      }
+      .result.visible { display: block; }
+      .error { color: var(--danger); }
+      .success { color: var(--success); }
+      .code, .api-url {
+        display: inline-block;
+        margin-top: 8px;
+        font-weight: 700;
+        word-break: break-all;
+      }
+      .code {
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: rgba(95,212,255,.12);
+        border: 1px solid rgba(95,212,255,.35);
+      }
+      .api-url {
+        color: var(--accent);
+      }
+      .small {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="panel">
+      <h1>YouTube Connect</h1>
+      <p>Generate a secure connect code, then send <strong>!connect {code}</strong> in YouTube chat. The API will save the YouTube channel ID as <strong>ytid</strong> in Firebase without removing existing fields.</p>
+
+      <form id="connect-form">
+        <div class="field">
+          <label for="userId">Discord User ID</label>
+          <input id="userId" name="userId" placeholder="123456789012345678" required />
+        </div>
+
+        <div class="field">
+          <label for="guildId">Discord Guild ID (optional)</label>
+          <input id="guildId" name="guildId" placeholder="987654321098765432" />
+        </div>
+
+        <div class="field">
+          <label for="channelId">YouTube Channel ID</label>
+          <input id="channelId" name="channelId" placeholder="UCxxxxxxxxxxxxxxxxxxxx" required />
+        </div>
+
+        <button type="submit">Generate & Connect</button>
+      </form>
+
+      <div id="result" class="result" aria-live="polite"></div>
+    </main>
+
+    <script>
+      const form = document.getElementById('connect-form');
+      const result = document.getElementById('result');
+
+      function makeConnectId() {
+        return Math.random().toString(36).slice(2, 10).toUpperCase();
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const userId = document.getElementById('userId').value.trim();
+        const guildId = document.getElementById('guildId').value.trim();
+        const channelId = document.getElementById('channelId').value.trim();
+
+        if (!userId || !channelId) {
+          result.classList.add('visible');
+          result.innerHTML = '<div class="error">Discord User ID and YouTube Channel ID are required.</div>';
+          return;
+        }
+
+        const connectId = makeConnectId();
+        const apiUrl = `${location.origin}/api/connect/${connectId}`;
+
+        try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId,
+              guildId: guildId || null,
+              channel: channelId,
+            }),
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to create connection');
+          }
+
+          result.classList.add('visible');
+          result.innerHTML = `
+            <div class="success"><strong>Connected successfully.</strong></div>
+            <div><strong>Command:</strong></div>
+            <div class="code">!connect ${connectId}</div>
+            <div><strong>API URL:</strong></div>
+            <div class="api-url">${apiUrl}?channel=${encodeURIComponent(channelId)}</div>
+            <div class="small">This stores the YouTube channel ID as <strong>ytid</strong> in Firebase and keeps all other fields intact.</div>
+          `;
+        } catch (error) {
+          result.classList.add('visible');
+          result.innerHTML = `<div class="error">${error.message}</div>`;
+        }
+      });
+    </script>
+  </body>
+</html>
