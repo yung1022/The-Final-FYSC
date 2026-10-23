@@ -77,6 +77,41 @@
         word-break: break-all;
       }
       .small { font-size: 12px; color: var(--muted); margin-top: 8px; }
+      .stats {
+        margin-top: 20px;
+        padding: 16px;
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
+        background: rgba(255,255,255,.02);
+      }
+      .stats[hidden] { display: none; }
+      .stats h2 {
+        margin: 0 0 12px;
+        font-size: 18px;
+      }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 12px;
+      }
+      .stat {
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(95,212,255,.08);
+        border: 1px solid rgba(95,212,255,.18);
+      }
+      .stat-label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: .08em;
+      }
+      .stat-value {
+        font-weight: 700;
+        word-break: break-word;
+      }
     </style>
   </head>
   <body>
@@ -91,21 +126,48 @@
       </div>
 
       <div id="result" class="result" aria-live="polite"></div>
+      <div id="stats" class="stats" hidden></div>
     </main>
 
     <script>
       const discordButton = document.getElementById('discord-button');
       const result = document.getElementById('result');
       const status = document.getElementById('status');
+      const statsBox = document.getElementById('stats');
 
-      const params = new URLSearchParams(window.location.search);
-      const connected = params.get('connected') === '1';
-      const discordUserId = params.get('discordUserId');
-      const discordUsername = params.get('discordUsername');
+      let session = null;
+
+      function renderStats(stats) {
+        if (!stats || typeof stats !== 'object') {
+          statsBox.hidden = true;
+          statsBox.innerHTML = '';
+          return;
+        }
+
+        const entries = [
+          ['subscribers', stats.subscribers ?? 'N/A'],
+          ['growth', stats.growth ?? 'N/A'],
+          ['video', stats.video ?? 'N/A'],
+          ['short', stats.short ?? 'N/A'],
+        ];
+
+        statsBox.hidden = false;
+        statsBox.innerHTML = `
+          <h2>Your stats</h2>
+          <div class="stats-grid">
+            ${entries.map(([label, value]) => `
+              <div class="stat">
+                <span class="stat-label">${label}</span>
+                <span class="stat-value">${value}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
 
       function updateUI() {
-        if (connected && discordUserId) {
-          status.textContent = `Discord connected: ${discordUsername || 'Unknown'} (${discordUserId})`;
+        if (session && session.discordUserId) {
+          status.textContent = `Discord connected: ${session.discordUsername || 'Unknown'} (${session.discordUserId})`;
           discordButton.textContent = 'Generate connect code';
           return;
         }
@@ -114,10 +176,31 @@
         discordButton.textContent = 'Connect Discord';
       }
 
-      updateUI();
+      async function loadSession() {
+        try {
+          const response = await fetch('/api/discord/me', { credentials: 'same-origin' });
+          if (!response.ok) {
+            session = null;
+            renderStats(null);
+            updateUI();
+            return;
+          }
+
+          const data = await response.json();
+          session = data && data.session ? data.session : null;
+          renderStats(data && data.stats ? data.stats : null);
+          updateUI();
+        } catch (error) {
+          session = null;
+          renderStats(null);
+          updateUI();
+        }
+      }
+
+      loadSession();
 
       discordButton.addEventListener('click', async () => {
-        if (!connected || !discordUserId) {
+        if (!session || !session.discordUserId) {
           window.location.href = '/api/discord/login';
           return;
         }
@@ -128,6 +211,7 @@
 
           const response = await fetch('/api/connect/generate', {
             method: 'POST',
+            credentials: 'same-origin',
           });
 
           const data = await response.json();
