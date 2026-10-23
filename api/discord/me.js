@@ -1,4 +1,5 @@
 const { getSessionFromRequest } = require('../lib/discord-auth');
+const { displayedSubscribers, offlineGrowthAt } = require('../lib/offline-growth');
 
 const FIREBASE_URL = process.env.FIREBASE_DB_URL?.replace(/\/$/, '');
 
@@ -14,18 +15,19 @@ function firebaseUrl(path = '') {
 function normalizeStats(data) {
   if (!data || typeof data !== 'object') return null;
 
-  const normalized = {
-    name: data.name || data.displayName || data.username || null,
-    subscribers: Number(data.subscribers ?? data.subscriberCount ?? data.subs ?? 0),
-    growth: Number(data.growth ?? data.growthCount ?? data.growthValue ?? 0),
-    video: Number(data.video ?? data.videoCount ?? 0),
-    short: Number(data.short ?? data.shortCount ?? 0),
-    guildId: data.guildId || null,
-    userId: data.userId || null,
-    updatedAt: data.updatedAt || data.createdAt || null,
-  };
+  const subscribers = Number(data.subscribers ?? data.subscriberCount ?? data.subs ?? 0);
+  const growth = Number(data.growth ?? data.growthCount ?? data.growthValue ?? 0);
+  const video = Number(data.video ?? data.videoCount ?? 0);
+  const short = Number(data.short ?? data.shortCount ?? 0);
+  const offlineDuration = Number(data.offlineduration ?? 0);
+  const now = Math.floor(Date.now() / 1000);
 
-  return normalized;
+  return {
+    subscribers: Math.round(displayedSubscribers({ subscribers, growth, offlineduration: offlineDuration }, now)),
+    growth: Math.round(offlineGrowthAt(growth, offlineDuration, now)),
+    video,
+    short,
+  };
 }
 
 module.exports = async function handler(req, res) {
