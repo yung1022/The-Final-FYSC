@@ -1,106 +1,46 @@
 const FIREBASE_URL = process.env.FIREBASE_DB_URL?.replace(/\/$/, '');
 
-function requireFirebase() {
+function firebaseUrl(path = '') {
   if (!FIREBASE_URL) {
     throw new Error('FIREBASE_DB_URL is not configured in Vercel');
   }
+
+  const cleanPath = String(path || '').replace(/^\/+/, '');
+  return `${FIREBASE_URL}/${cleanPath}.json`;
 }
 
-function firebaseUrl(path = '') {
-  requireFirebase();
-  const suffix = path ? `/${path.replace(/^\//, '')}` : '';
-  return `${FIREBASE_URL}${suffix}.json`;
+function sanitizeString(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text || null;
 }
 
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-
-    req.on('data', (chunk) => {
-      chunks.push(chunk);
-    });
-
-    req.on('end', () => {
-      try {
-        const text = Buffer.concat(chunks).toString('utf8');
-        if (!text.trim()) {
-          resolve({});
-          return;
-        }
-        if (req.body && typeof req.body === 'object') {
-          resolve(req.body);
-          return;
-        }
-        resolve(JSON.parse(text));
-      } catch (error) {
-        reject(new Error('Invalid JSON body'));
-      }
-    });
-
-    req.on('error', reject);
-  });
+async function readFirebaseRecord(path) {
+  try {
+    const response = await fetch(firebaseUrl(path));
+    if (!response.ok) return {};
+    const text = await response.text();
+    if (!text.trim()) return {};
+    const data = JSON.parse(text);
+    return data && typeof data === 'object' ? data : {};
+  } catch (error) {
+    return {};
+  }
 }
 
-function sanitizeValue(value) {
-  return typeof value === 'string' ? value.trim() : value;
-}
-
-function generateConnectId() {
-  return Math.random().toString(36).slice(2, 10).toUpperCase();
-}
-
-async function fetchJson(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
+async function writeFirebaseRecord(path, value) {
+  const response = await fetch(firebaseUrl(path), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value),
   });
 
   if (!response.ok) {
-    const payload = await response.text().catch(() => '');
-    throw new Error(payload || `Request failed with HTTP ${response.status}`);
+    const text = await response.text().catch(() => '');
+    throw new Error(text || `Firebase write failed with HTTP ${response.status}`);
   }
 
-  const text = await response.text();
-  if (!text) return null;
-  return JSON.parse(text);
-}
-
-async function writeConnection(entry) {
-  const connectionResponse = await fetchJson(firebaseUrl(`/youtube-connections/${encodeURIComponent(entry.connectId)}`), {
-    method: 'PUT',
-    body: JSON.stringify(entry),
-  });
-
-  if (entry.userId) {
-    await fetchJson(firebaseUrl(`/youtube-user-links/${encodeURIComponent(entry.userId)}`), {
-      method: 'PUT',
-      body: JSON.stringify({
-        userId: entry.userId,
-        connectId: entry.connectId,
-        youtubeChannelId: entry.youtubeChannelId,
-        guildId: entry.guildId || null,
-        linkedAt: entry.createdAt,
-      }),
-    });
-  }
-
-  if (entry.youtubeChannelId) {
-    await fetchJson(firebaseUrl(`/youtube-channel-links/${encodeURIComponent(entry.youtubeChannelId)}`), {
-      method: 'PUT',
-      body: JSON.stringify({
-        youtubeChannelId: entry.youtubeChannelId,
-        connectId: entry.connectId,
-        userId: entry.userId || null,
-        guildId: entry.guildId || null,
-        linkedAt: entry.createdAt,
-      }),
-    });
-  }
-
-  return connectionResponse;
+  return value;
 }
 
 module.exports = async function handler(req, res) {
@@ -117,90 +57,99 @@ module.exports = async function handler(req, res) {
 
   const url = new URL(req.url, 'https://example.com');
   const pathParts = url.pathname.split('/').filter(Boolean);
-  const connectId = pathParts[0] === 'api' && pathParts[1] === 'connect' ? (pathParts[2] || null) : null;
-  const requestedChannel = url.searchParams.get('channel') || url.searchParams.get('youtubeChannelId') || url.searchParams.get('channelId');
+  const connectId = pathParts.length >= 2 && pathParts[0] === 'api' && pathParts[1] === 'connect'
+    ? sanitizeString(pathParts[2])
+    : null;
 
-  if (!connectId && req.method === 'GET') {
-    res.writeHead(200);
+  if (!connectId) {
+    res.writeHead(400);
     res.end(JSON.stringify({
-      message: 'YouTube connect API',
-      endpoint: '/api/connect/:connectId?channel={youtubeChannelId}',
-      example: '/api/connect/ABC123?channel=UC1234567890',
+      error: 'connectId is required. Example: /api/connect/ABC123?channel=UC1234567890',
     }));
     return;
   }
 
-  if (!connectId) {
-    res.writeHead(400);
-    res.end(JSON.stringify({ error: 'connectId is required in the route /api/connect/:connectId' }));
-    return;
-  }
+  const firebasePath = `youtube-connections/${encodeURIComponent(connectId)}`;
 
   if (req.method === 'GET') {
     try {
-      const data = await fetchJson(firebaseUrl(`/youtube-connections/${encodeURIComponent(connectId)}`));
-      if (!data) {
+      const record = await readFirebaseRecord(firebasePath);
+      if (!record || Object.keys(record).length === 0) {
         res.writeHead(404);
         res.end(JSON.stringify({ error: 'connectId not found' }));
         return;
       }
+
       res.writeHead(200);
-      res.end(JSON.stringify(data));
+      res.end(JSON.stringify(record));
+      return;
     } catch (error) {
       res.writeHead(502);
       res.end(JSON.stringify({ error: error.message || 'Connection lookup failed' }));
+      return;
     }
-    return;
   }
 
-  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
+  if (req.method === 'DELETE') {
     try {
-      if (req.method === 'DELETE') {
-        await fetchJson(firebaseUrl(`/youtube-connections/${encodeURIComponent(connectId)}`), { method: 'DELETE' });
-        res.writeHead(200);
-        res.end(JSON.stringify({ message: 'Connection removed', connectId }));
-        return;
-      }
+      const existing = await readFirebaseRecord(firebasePath);
+      const next = { ...existing, connectId, updatedAt: new Date().toISOString() };
+      delete next.ytid;
+      await writeFirebaseRecord(firebasePath, next);
+      res.writeHead(200);
+      res.end(JSON.stringify({ message: 'Connection removed', connectId }));
+      return;
+    } catch (error) {
+      res.writeHead(400);
+      res.end(JSON.stringify({ error: error.message || 'Delete failed' }));
+      return;
+    }
+  }
 
-      const body = req.body && typeof req.body === 'object' ? req.body : await readBody(req);
-      const channelId = sanitizeValue(body.channel || body.youtubeChannelId || body.channelId || requestedChannel);
-      const userId = sanitizeValue(body.userId || body.discordUserId || body.user_id || body.memberId || body.discordId);
-      const guildId = sanitizeValue(body.guildId || body.discordGuildId || body.guild_id || body.serverId || null);
+  if (req.method === 'POST' || req.method === 'PUT') {
+    try {
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const channel = sanitizeString(
+        body.channel ??
+        body.youtubeChannelId ??
+        body.channelId ??
+        url.searchParams.get('channel') ??
+        url.searchParams.get('youtubeChannelId') ??
+        url.searchParams.get('channelId')
+      );
 
-      if (!channelId) {
+      if (!channel) {
         res.writeHead(400);
         res.end(JSON.stringify({ error: 'channel is required. Use ?channel=YOUTUBE_CHANNEL_ID or body.channel' }));
         return;
       }
 
-      const entry = {
+      const existing = await readFirebaseRecord(firebasePath);
+      const updated = {
+        ...existing,
         connectId,
-        userId: userId || null,
-        guildId: guildId || null,
-        youtubeChannelId: channelId,
-        createdAt: new Date().toISOString(),
+        ytid: channel,
+        updatedAt: new Date().toISOString(),
       };
 
-      await writeConnection(entry);
+      await writeFirebaseRecord(firebasePath, updated);
+
       res.writeHead(200);
       res.end(JSON.stringify({
         message: 'YouTube channel connected',
         connectId,
-        userId: entry.userId,
-        guildId: entry.guildId,
-        youtubeChannelId: entry.youtubeChannelId,
-        apiUrl: `/api/connect/${connectId}?channel=${encodeURIComponent(channelId)}`,
-        command: userId ? `!connect ${connectId}` : `!connect ${connectId}`,
+        discordUserId: updated.discordUserId || null,
+        ytid: updated.ytid,
+        command: `!connect ${connectId}`,
       }));
       return;
     } catch (error) {
       res.writeHead(400);
       res.end(JSON.stringify({ error: error.message || 'Bad request' }));
+      return;
     }
   }
 
   res.writeHead(405);
   res.end(JSON.stringify({ error: 'Method not allowed' }));
 };
-
-module.exports.generateConnectId = generateConnectId;

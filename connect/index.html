@@ -33,44 +33,26 @@
         padding: 24px;
         box-shadow: 0 24px 60px rgba(0,0,0,.35);
       }
-      h1 {
-        margin: 0 0 12px;
-        font-size: clamp(24px, 4vw, 38px);
-      }
-      p {
-        margin: 0;
+      h1 { margin: 0 0 12px; font-size: clamp(24px, 4vw, 38px); }
+      p { margin: 0; color: var(--muted); line-height: 1.5; }
+      #status {
+        margin-top: 14px;
         color: var(--muted);
-        line-height: 1.5;
+        font-size: 12px;
       }
-      form {
-        display: grid;
-        gap: 18px;
-        margin-top: 22px;
+      .button-row {
+        margin-top: 20px;
       }
-      .field {
-        display: grid;
-        gap: 8px;
-      }
-      label {
-        font-weight: 700;
-      }
-      input {
-        width: 100%;
-        border: 1px solid var(--panel-border);
-        border-radius: 10px;
-        background: rgba(0,0,0,.25);
-        color: var(--text);
-        padding: 12px 14px;
-        font-size: 16px;
-      }
-      button {
+      .button {
+        display: inline-block;
+        text-decoration: none;
         border: 0;
         border-radius: 10px;
         background: linear-gradient(135deg, var(--accent), #4a82ff);
         color: #03141f;
         font-size: 16px;
         font-weight: 800;
-        padding: 12px 16px;
+        padding: 12px 18px;
         cursor: pointer;
       }
       .result {
@@ -82,85 +64,87 @@
         background: rgba(255,255,255,.02);
       }
       .result.visible { display: block; }
-      .error { color: var(--danger); }
       .success { color: var(--success); }
-      .code, .api-url {
+      .error { color: var(--danger); }
+      .code {
         display: inline-block;
         margin-top: 8px;
-        font-weight: 700;
-        word-break: break-all;
-      }
-      .code {
         padding: 8px 12px;
         border-radius: 8px;
         background: rgba(95,212,255,.12);
         border: 1px solid rgba(95,212,255,.35);
+        font-weight: 700;
+        word-break: break-all;
       }
-      .api-url {
-        color: var(--accent);
-      }
-      .small {
-        font-size: 12px;
-        color: var(--muted);
-        margin-top: 8px;
-      }
+      .small { font-size: 12px; color: var(--muted); margin-top: 8px; }
     </style>
   </head>
   <body>
     <main class="panel">
       <h1>YouTube Connect</h1>
-      <p>Generate a connect code for this Discord user. Nightbot will send the YouTube channel ID later; the API stores it in <strong>ytid</strong> without removing any existing fields.</p>
+      <p>Connect your Discord account first, then generate a connect code. Nightbot later submits the YouTube channel ID.</p>
 
-      <form id="connect-form">
-        <div class="field">
-          <label for="userId">Discord User ID</label>
-          <input id="userId" name="userId" placeholder="123456789012345678" required />
-        </div>
+      <div id="status"></div>
 
-        <div class="field">
-          <label for="guildId">Discord Guild ID (optional)</label>
-          <input id="guildId" name="guildId" placeholder="987654321098765432" />
-        </div>
-
-        <button type="submit">Generate connect code</button>
-      </form>
+      <div class="button-row">
+        <button id="discord-button" class="button" type="button">Connect Discord</button>
+      </div>
 
       <div id="result" class="result" aria-live="polite"></div>
     </main>
 
     <script>
-      const form = document.getElementById('connect-form');
+      const discordButton = document.getElementById('discord-button');
       const result = document.getElementById('result');
+      const status = document.getElementById('status');
 
-      function makeConnectId() {
-        return Math.random().toString(36).slice(2, 10).toUpperCase();
-      }
+      const params = new URLSearchParams(window.location.search);
+      const connected = params.get('connected') === '1';
+      const discordUserId = params.get('discordUserId');
+      const discordUsername = params.get('discordUsername');
 
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-
-        const userId = document.getElementById('userId').value.trim();
-        const guildId = document.getElementById('guildId').value.trim();
-
-        if (!userId) {
-          result.classList.add('visible');
-          result.innerHTML = '<div class="error">Discord User ID is required.</div>';
+      function updateUI() {
+        if (connected && discordUserId) {
+          status.textContent = `Discord connected: ${discordUsername || 'Unknown'} (${discordUserId})`;
+          discordButton.textContent = 'Generate connect code';
           return;
         }
 
-        const connectId = makeConnectId();
-        const apiUrl = `${location.origin}/api/connect/${connectId}`;
+        status.textContent = 'Not connected to Discord yet.';
+        discordButton.textContent = 'Connect Discord';
+      }
 
-        result.classList.add('visible');
-        result.innerHTML = `
-          <div class="success"><strong>Connect code generated.</strong></div>
-          <div><strong>Command:</strong></div>
-          <div class="code">!connect ${connectId}</div>
-          <div><strong>API endpoint:</strong></div>
-          <div class="api-url">${apiUrl}?channel=YOUTUBE_CHANNEL_ID</div>
-          <div class="small">Nightbot will send the YouTube channel ID later. The API will store it as <strong>ytid</strong> and keep all other fields intact.</div>
-          <div class="small">Discord user: <strong>${userId}</strong>${guildId ? ` · Guild: <strong>${guildId}</strong>` : ''}</div>
-        `;
+      updateUI();
+
+      discordButton.addEventListener('click', async () => {
+        if (!connected || !discordUserId) {
+          window.location.href = '/api/discord/login';
+          return;
+        }
+
+        try {
+          result.classList.add('visible');
+          result.innerHTML = '<div class="success">Generating connect code…</div>';
+
+          const response = await fetch('/api/connect/generate', {
+            method: 'POST',
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to generate connect code');
+          }
+
+          result.innerHTML = `
+            <div class="success"><strong>Connect code created.</strong></div>
+            <div><strong>Command:</strong></div>
+            <div class="code">!connect ${data.connectId}</div>
+            <div class="small">Nightbot later calls: <strong>/api/connect/${data.connectId}?channel=YOUTUBE_CHANNEL_ID</strong></div>
+          `;
+        } catch (error) {
+          result.classList.add('visible');
+          result.innerHTML = `<div class="error">${error.message}</div>`;
+        }
       });
     </script>
   </body>
