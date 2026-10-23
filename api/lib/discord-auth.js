@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 
+const isHttpsLike = () => Boolean(process.env.VERCEL || process.env.NODE_ENV === 'production');
+
 function base64UrlEncode(value) {
   return Buffer.from(value).toString('base64url');
 }
@@ -51,7 +53,7 @@ function parseCookies(rawCookieHeader = '') {
 }
 
 function setCookie(name, value, options = {}) {
-  const secure = options.secure ?? true;
+  const secure = options.secure ?? isHttpsLike();
   const parts = [
     `${name}=${encodeURIComponent(value)}`,
     'Path=/',
@@ -66,7 +68,7 @@ function setCookie(name, value, options = {}) {
 }
 
 function clearCookie(name) {
-  return setCookie(name, '', { maxAge: 0, secure: true });
+  return setCookie(name, '', { maxAge: 0, secure: isHttpsLike() });
 }
 
 function getSessionFromRequest(req) {
@@ -88,11 +90,11 @@ function requireDiscordSession(req) {
 
 function setSessionCookie(session) {
   const value = serializeSession(session);
-  return setCookie('discord_session', value, { secure: true });
+  return setCookie('discord_session', value, { secure: isHttpsLike() });
 }
 
 function setStateCookie(value) {
-  return setCookie('discord_oauth_state', value, { secure: true });
+  return setCookie('discord_oauth_state', value, { secure: isHttpsLike() });
 }
 
 function getStateFromRequest(req) {
