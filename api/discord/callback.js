@@ -75,7 +75,7 @@ module.exports = async function handler(req, res) {
     ];
 
     res.writeHead(302, {
-      Location: `/connect?connected=1&discordUserId=${encodeURIComponent(userData.id)}&discordUsername=${encodeURIComponent(userData.username)}`,
+      Location: '/connect',
       'Set-Cookie': cookies,
     });
     res.end();
