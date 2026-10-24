@@ -1,44 +1,14 @@
 const { offlineGrowthAt, currentUnixTime } = require('../../../lib/offline-growth');
 
+const MIN_YT_GROWTH = 1000;
+const MAX_YT_GROWTH = 5000;
+
 function sanitizeNumber(value, fallback = 0) {
   const numeric = Number(value ?? fallback);
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
-function normalizeEntry(entry, userId) {
-  if (!entry || typeof entry !== 'object') return null;
-  const next = { ...entry };
-  if (userId != null && next.userId == null) next.userId = userId;
-
-  next.ytgrowth = sanitizeNumber(next.ytgrowth, 0);
-  next.tempsub = sanitizeNumber(next.tempsub, 0);
-  next.ytofflineduration = sanitizeNumber(next.ytofflineduration, currentUnixTime());
-
-  if (next.ytgrowth < 0) next.ytgrowth = 0;
-  if (next.tempsub < 0) next.tempsub = 0;
-  if (next.ytofflineduration <= 0) next.ytofflineduration = currentUnixTime();
-
-  return next;
-}
-
-function applyYtGrowth(entry, extraGrowth = 0) {
-  const next = normalizeEntry(entry, entry?.userId ?? null);
-  const now = currentUnixTime();
-  const previousGrowth = offlineGrowthAt(next.ytgrowth, next.ytofflineduration, now);
-  const previousTempSub = offlineGrowthAt(next.tempsub, next.ytofflineduration, now);
-
-  next.ytgrowth = sanitizeNumber(next.ytgrowth) + sanitizeNumber(extraGrowth, 0);
-  next.tempsub = sanitizeNumber(next.tempsub) + previousTempSub;
-  next.ytofflineduration = now;
-
-  return {
-    ...next,
-    previousGrowth,
-    previousTempSub,
-  };
-}
-
-async function getLeaderboardEntries() {
+async function readLeaderboard() {
   const FIREBASE_URL = process.env.FIREBASE_DB_URL?.replace(/\/$/, '');
   if (!FIREBASE_URL) {
     throw new Error('FIREBASE_DB_URL is not configured in Vercel');
@@ -53,8 +23,8 @@ async function getLeaderboardEntries() {
   if (!data) return [];
 
   return Object.entries(data).map(([key, value]) => {
-    const item = value && typeof value === 'object' ? value : {};
-    return { ...item, userId: item.userId || key };
+    const entry = value && typeof value === 'object' ? value : {};
+    return { ...entry, userId: entry.userId || key };
   });
 }
 
@@ -62,25 +32,27 @@ async function findUserByChannelId(channelId) {
   const cleanChannelId = String(channelId ?? '').trim();
   if (!cleanChannelId) return null;
 
-  const entries = await getLeaderboardEntries();
+  const entries = await readLeaderboard();
   const match = entries.find((entry) => {
     const storedId = String(entry?.ytid ?? entry?.youtubeChannelId ?? entry?.channelId ?? '').trim();
     return storedId === cleanChannelId;
   });
 
   if (!match) return null;
-  return normalizeEntry(match, match.userId);
+
+  return {
+    ...match,
+    ytgrowth: sanitizeNumber(match.ytgrowth, 0),
+    tempsub: sanitizeNumber(match.tempsub, 0),
+    ytofflineduration: sanitizeNumber(match.ytofflineduration, currentUnixTime()),
+    userId: match.userId || null,
+  };
 }
 
-async function saveEntry(entry) {
+async function saveUser(userId, entry) {
   const FIREBASE_URL = process.env.FIREBASE_DB_URL?.replace(/\/$/, '');
   if (!FIREBASE_URL) {
     throw new Error('FIREBASE_DB_URL is not configured in Vercel');
-  }
-
-  const userId = String(entry?.userId ?? '').trim();
-  if (!userId) {
-    throw new Error('Missing userId while saving yt growth data');
   }
 
   const response = await fetch(`${FIREBASE_URL}/leaderboard/${encodeURIComponent(userId)}.json`, {
@@ -97,11 +69,68 @@ async function saveEntry(entry) {
   return entry;
 }
 
-module.exports = {
-  normalizeEntry,
-  applyYtGrowth,
-  findUserByChannelId,
-  saveEntry,
-  currentUnixTime,
-  offlineGrowthAt,
+module.exports = async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Content-Type', 'application/json');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  if (req.method !== 'GET') {
+    res.writeHead(405);
+    res.end(JSON.stringify({ error: 'Method not allowed' }));
+    return;
+  }
+
+  const url = new URL(req.url, 'https://example.com');
+  const channelId = url.pathname.split('/').filter(Boolean).pop();
+
+  if (!channelId) {
+    res.writeHead(400);
+    res.end(JSON.stringify({ error: 'channelId is required' }));
+    return;
+  }
+
+  try {
+    const user = await findUserByChannelId(channelId);
+    if (!user || !user.userId) {
+      res.writeHead(404);
+      res.end(JSON.stringify({ error: 'channelId not found for any Discord-linked user' }));
+      return;
+    }
+
+    const now = currentUnixTime();
+    const addedGrowth = MIN_YT_GROWTH + Math.floor(Math.random() * (MAX_YT_GROWTH - MIN_YT_GROWTH + 1));
+    const tempSubGain = offlineGrowthAt(sanitizeNumber(user.tempsub, 0), sanitizeNumber(user.ytofflineduration, now), now);
+
+    const next = {
+      ...user,
+      userId: user.userId,
+      ytid: channelId,
+      ytgrowth: sanitizeNumber(user.ytgrowth, 0) + addedGrowth,
+      tempsub: sanitizeNumber(user.tempsub, 0) + tempSubGain,
+      ytofflineduration: now,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saved = await saveUser(user.userId, next);
+
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      channelId,
+      userId: user.userId,
+      addedGrowth,
+      currentYtGrowth: saved.ytgrowth,
+      subGain: tempSubGain,
+      tempsub: saved.tempsub,
+      ytofflineduration: saved.ytofflineduration,
+    }));
+  } catch (error) {
+    res.writeHead(400);
+    res.end(JSON.stringify({ error: error.message || 'Failed to process yt post' }));
+  }
 };
