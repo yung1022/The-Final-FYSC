@@ -85,26 +85,63 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const record = await readFirebaseRecord(firebasePath);
-      if (!record || Object.keys(record).length === 0) {
+      const existing = await readFirebaseRecord(firebasePath);
+      if (!existing || Object.keys(existing).length === 0) {
         res.writeHead(404);
         res.end(JSON.stringify({ error: 'connectId not found' }));
         return;
       }
 
-      if (isExpiredRecord(record)) {
+      if (isExpiredRecord(existing)) {
         await deleteFirebaseRecord(firebasePath);
         res.writeHead(410);
         res.end(JSON.stringify({
           error: 'connectId expired',
           connectId,
-          expiredAt: record.expiresAt,
+          expiredAt: existing.expiresAt,
+        }));
+        return;
+      }
+
+      const channel = sanitizeString(
+        url.searchParams.get('channel') ??
+        url.searchParams.get('youtubeChannelId') ??
+        url.searchParams.get('channelId')
+      );
+
+      if (channel) {
+        const userId = sanitizeString(existing.discordUserId);
+        if (!userId) {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'discordUserId is required on the connection record' }));
+          return;
+        }
+
+        const userPath = `leaderboard/${encodeURIComponent(userId)}`;
+        const userRecord = await readFirebaseRecord(userPath);
+        const updatedUserRecord = {
+          ...(userRecord && typeof userRecord === 'object' ? userRecord : {}),
+          userId,
+          ytid: channel,
+          updatedAt: new Date().toISOString(),
+        };
+
+        await writeFirebaseRecord(userPath, updatedUserRecord);
+        await deleteFirebaseRecord(firebasePath);
+
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          message: 'YouTube channel connected',
+          connectId,
+          discordUserId: userId,
+          ytid: channel,
+          command: `!connect ${connectId}`,
         }));
         return;
       }
 
       res.writeHead(200);
-      res.end(JSON.stringify(record));
+      res.end(JSON.stringify(existing));
       return;
     } catch (error) {
       res.writeHead(502);
@@ -189,7 +226,6 @@ module.exports = async function handler(req, res) {
         updatedAt: new Date().toISOString(),
       };
       await writeFirebaseRecord(userPath, updatedUserRecord);
-
       await deleteFirebaseRecord(firebasePath);
 
       res.writeHead(200);
