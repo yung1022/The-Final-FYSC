@@ -91,7 +91,10 @@ module.exports = async function handler(req, res) {
 
   if (!channelId) {
     res.writeHead(400);
-    res.end(JSON.stringify({ error: 'channelId is required' }));
+    res.end(JSON.stringify({
+      error: 'channelId is required',
+      message: 'channelId is required',
+    }));
     return;
   }
 
@@ -99,7 +102,10 @@ module.exports = async function handler(req, res) {
     const user = await findUserByChannelId(channelId);
     if (!user || !user.userId) {
       res.writeHead(404);
-      res.end(JSON.stringify({ error: 'channelId not found for any Discord-linked user' }));
+      res.end(JSON.stringify({
+        error: 'channelId not found for any Discord-linked user',
+        message: 'channelId not found for any Discord-linked user',
+      }));
       return;
     }
 
@@ -131,9 +137,13 @@ module.exports = async function handler(req, res) {
       subGain: Number(tempSubGain),
       tempsub: Number(saved.tempsub),
       ytofflineduration: Number(saved.ytofflineduration),
+      message: `Post successful, gained ${Number(addedGrowth).toFixed(2)} growth!`,
     }));
   } catch (error) {
     res.writeHead(400);
-    res.end(JSON.stringify({ error: error.message || 'Failed to process yt post' }));
+    res.end(JSON.stringify({
+      error: error.message || 'Failed to process yt post',
+      message: error.message || 'Failed to process yt post',
+    }));
   }
 };
