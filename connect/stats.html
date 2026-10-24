@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Discord Stats</title>
+    <style>
+      :root {
+        --bg: #08131d;
+        --panel: #101f2e;
+        --panel-border: #1e3348;
+        --text: #edf7ff;
+        --muted: #a7c0d9;
+        --accent: #5fd4ff;
+        --success: #8fe6b4;
+        --danger: #ff8b7d;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, Arial, sans-serif;
+      }
+      .panel {
+        width: min(94vw, 980px);
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 24px 60px rgba(0,0,0,.35);
+      }
+      h1 { margin: 0 0 12px; font-size: clamp(24px, 4vw, 38px); }
+      p { margin: 0; color: var(--muted); line-height: 1.5; }
+      .muted { color: var(--muted); }
+      .button-row {
+        margin-top: 20px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .button, .link-button {
+        display: inline-block;
+        text-decoration: none;
+        border: 0;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--accent), #4a82ff);
+        color: #03141f;
+        font-size: 15px;
+        font-weight: 800;
+        padding: 12px 16px;
+        cursor: pointer;
+      }
+      .link-button {
+        background: rgba(95,212,255,.12);
+        border: 1px solid rgba(95,212,255,.35);
+        color: var(--text);
+      }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+        margin-top: 20px;
+      }
+      .stat {
+        padding: 14px 16px;
+        background: rgba(255,255,255,.02);
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
+      }
+      .stat-label {
+        display: block;
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        margin-bottom: 8px;
+      }
+      .stat-value {
+        font-size: clamp(20px, 3vw, 30px);
+        font-weight: 800;
+        line-height: 1.2;
+      }
+      .summary {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        border: 1px solid var(--panel-border);
+        background: rgba(255,255,255,.02);
+      }
+      .error { color: var(--danger); }
+      .success { color: var(--success); }
+    </style>
+  </head>
+  <body>
+    <main class="panel">
+      <h1>Discord Stats</h1>
+      <p>Current leaderboard values for your connected Discord account.</p>
+
+      <div id="status" class="muted"></div>
+
+      <div class="button-row">
+        <a class="link-button" href="/connect">Back to connect</a>
+        <button id="login-button" class="button" type="button" hidden>Connect Discord</button>
+      </div>
+
+      <div id="content"></div>
+    </main>
+
+    <script>
+      const statusEl = document.getElementById('status');
+      const contentEl = document.getElementById('content');
+      const loginButton = document.getElementById('login-button');
+
+      function offlineGrowthFor(entry) {
+        const growth = Number(entry?.growth ?? 0);
+        const offlineDuration = Number(entry?.offlineduration ?? 0);
+        const now = Math.floor(Date.now() / 1000);
+        if (!Number.isFinite(growth) || growth === 0 || !Number.isFinite(offlineDuration) || offlineDuration <= 0) {
+          return 0;
+        }
+        return growth * (1 - (0.9999 ** (0.2 * Math.max(0, now - offlineDuration))));
+      }
+
+      function displayedSubscribersFor(entry) {
+        const subscribers = Number(entry?.subscribers ?? 0);
+        return subscribers + offlineGrowthFor(entry);
+      }
+
+      function number(value) {
+        const numeric = Number(value ?? 0);
+        return Number.isFinite(numeric) ? numeric : 0;
+      }
+
+      function render(data) {
+        if (!data || !data.session || !data.session.discordUserId) {
+          statusEl.textContent = 'Discord not connected yet.';
+          loginButton.hidden = false;
+          contentEl.innerHTML = '<div class="summary error">Sign in with Discord to view your stat history.</div>';
+          loginButton.onclick = () => {
+            window.location.href = '/api/discord/login';
+          };
+          return;
+        }
+
+        const stats = data.stats || {};
+        const offline = offlineGrowthFor(stats);
+        const displayed = displayedSubscribersFor(stats);
+        const totalGrowth = number(stats.growth);
+        const storedSubscribers = number(stats.subscribers);
+        const video = number(stats.video);
+        const short = number(stats.short);
+        const note = stats.offlineduration ? new Date(Number(stats.offlineduration) * 1000).toISOString() : 'Unknown';
+
+        statusEl.textContent = `Connected as ${data.session.discordUsername || 'Unknown'} (${data.session.discordUserId})`;
+        loginButton.hidden = true;
+
+        contentEl.innerHTML = `
+          <div class="summary success">
+            <strong>Current status:</strong> connected and synced from Firebase.
+          </div>
+          <div class="stats-grid">
+            <div class="stat">
+              <span class="stat-label">Stored subscribers</span>
+              <span class="stat-value">${Math.round(storedSubscribers).toLocaleString()}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Displayed subscribers</span>
+              <span class="stat-value">${Math.round(displayed).toLocaleString()}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Stored growth</span>
+              <span class="stat-value">${Math.round(totalGrowth).toLocaleString()}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Displayed growth</span>
+              <span class="stat-value">${Math.round(offline).toLocaleString()}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Video</span>
+              <span class="stat-value">${Math.round(video).toLocaleString()}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Short</span>
+              <span class="stat-value">${Math.round(short).toLocaleString()}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Offline duration</span>
+              <span class="stat-value">${note}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Updated</span>
+              <span class="stat-value">${stats.updatedAt || 'Unknown'}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      async function load() {
+        try {
+          const response = await fetch('/api/discord/me', { credentials: 'same-origin' });
+          if (!response.ok) {
+            render(null);
+            return;
+          }
+          const data = await response.json();
+          render(data);
+        } catch (error) {
+          render(null);
+        }
+      }
+
+      load();
+    </script>
+  </body>
+</html>
