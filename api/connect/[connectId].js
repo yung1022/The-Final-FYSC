@@ -15,6 +15,14 @@ function sanitizeString(value) {
   return text || null;
 }
 
+function isExpiredRecord(record) {
+  if (!record || typeof record !== 'object') return false;
+  if (!record.expiresAt) return false;
+  const expiresAt = Date.parse(record.expiresAt);
+  if (Number.isNaN(expiresAt)) return false;
+  return Date.now() > expiresAt;
+}
+
 async function readFirebaseRecord(path) {
   try {
     const response = await fetch(firebaseUrl(path));
@@ -41,6 +49,10 @@ async function writeFirebaseRecord(path, value) {
   }
 
   return value;
+}
+
+async function deleteFirebaseRecord(path) {
+  return writeFirebaseRecord(path, null);
 }
 
 module.exports = async function handler(req, res) {
@@ -80,6 +92,17 @@ module.exports = async function handler(req, res) {
         return;
       }
 
+      if (isExpiredRecord(record)) {
+        await deleteFirebaseRecord(firebasePath);
+        res.writeHead(410);
+        res.end(JSON.stringify({
+          error: 'connectId expired',
+          connectId,
+          expiredAt: record.expiresAt,
+        }));
+        return;
+      }
+
       res.writeHead(200);
       res.end(JSON.stringify(record));
       return;
@@ -93,9 +116,16 @@ module.exports = async function handler(req, res) {
   if (req.method === 'DELETE') {
     try {
       const existing = await readFirebaseRecord(firebasePath);
-      const next = { ...existing, connectId, updatedAt: new Date().toISOString() };
-      delete next.ytid;
-      await writeFirebaseRecord(firebasePath, next);
+      if (existing && existing.discordUserId) {
+        const userPath = `leaderboard/${encodeURIComponent(existing.discordUserId)}`;
+        const userRecord = await readFirebaseRecord(userPath);
+        if (userRecord && typeof userRecord === 'object') {
+          const nextUserRecord = { ...userRecord };
+          delete nextUserRecord.ytid;
+          await writeFirebaseRecord(userPath, nextUserRecord);
+        }
+      }
+      await deleteFirebaseRecord(firebasePath);
       res.writeHead(200);
       res.end(JSON.stringify({ message: 'Connection removed', connectId }));
       return;
@@ -109,6 +139,25 @@ module.exports = async function handler(req, res) {
   if (req.method === 'POST' || req.method === 'PUT') {
     try {
       const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const existing = await readFirebaseRecord(firebasePath);
+
+      if (!existing || Object.keys(existing).length === 0) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'connectId not found' }));
+        return;
+      }
+
+      if (isExpiredRecord(existing)) {
+        await deleteFirebaseRecord(firebasePath);
+        res.writeHead(410);
+        res.end(JSON.stringify({
+          error: 'connectId expired',
+          connectId,
+          expiredAt: existing.expiresAt,
+        }));
+        return;
+      }
+
       const channel = sanitizeString(
         body.channel ??
         body.youtubeChannelId ??
@@ -124,22 +173,30 @@ module.exports = async function handler(req, res) {
         return;
       }
 
-      const existing = await readFirebaseRecord(firebasePath);
-      const updated = {
-        ...existing,
-        connectId,
+      const userId = sanitizeString(existing.discordUserId || body.discordUserId || url.searchParams.get('discordUserId'));
+      if (!userId) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'discordUserId is required on the connection record' }));
+        return;
+      }
+
+      const userPath = `leaderboard/${encodeURIComponent(userId)}`;
+      const userRecord = await readFirebaseRecord(userPath);
+      const updatedUserRecord = {
+        ...(userRecord && typeof userRecord === 'object' ? userRecord : {}),
+        userId,
         ytid: channel,
         updatedAt: new Date().toISOString(),
       };
+      await writeFirebaseRecord(userPath, updatedUserRecord);
 
-      await writeFirebaseRecord(firebasePath, updated);
+      await deleteFirebaseRecord(firebasePath);
 
       res.writeHead(200);
       res.end(JSON.stringify({
         message: 'YouTube channel connected',
         connectId,
-        discordUserId: updated.discordUserId || null,
-        ytid: updated.ytid,
+        discordUserId: userId,
         command: `!connect ${connectId}`,
       }));
       return;
