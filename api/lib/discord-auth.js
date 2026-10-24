@@ -107,9 +107,22 @@ function setStateCookie(value) {
   return setCookie('discord_oauth_state', value, { secure: isHttpsLike() });
 }
 
+function setRedirectCookie(value) {
+  return setCookie('discord_oauth_redirect', String(value || 'connect'), { secure: isHttpsLike(), maxAge: 60 * 5 });
+}
+
 function getStateFromRequest(req) {
   const cookies = parseCookies(req.headers.cookie || '');
   return cookies.discord_oauth_state || null;
+}
+
+function getRedirectFromRequest(req) {
+  const cookies = parseCookies(req.headers.cookie || '');
+  return cookies.discord_oauth_redirect || null;
+}
+
+function clearRedirectCookie() {
+  return clearCookie('discord_oauth_redirect');
 }
 
 function makeConnectId() {
@@ -124,7 +137,10 @@ module.exports = {
   requireDiscordSession,
   setSessionCookie,
   setStateCookie,
+  setRedirectCookie,
   getStateFromRequest,
+  getRedirectFromRequest,
+  clearRedirectCookie,
   makeConnectId,
   serializeSession,
   deserializeSession,
