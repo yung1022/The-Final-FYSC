@@ -104,15 +104,19 @@ module.exports = async function handler(req, res) {
     }
 
     const now = currentUnixTime();
-    const addedGrowth = MIN_YT_GROWTH + Math.floor(Math.random() * (MAX_YT_GROWTH - MIN_YT_GROWTH + 1));
-    const tempSubGain = offlineGrowthAt(sanitizeNumber(user.tempsub, 0), sanitizeNumber(user.ytofflineduration, now), now);
+    const previousYtGrowth = sanitizeNumber(user.ytgrowth, 0);
+    const previousTempsub = sanitizeNumber(user.tempsub, 0);
+    const previousOfflineduration = sanitizeNumber(user.ytofflineduration, now);
+    const baseForGrowth = previousTempsub > 0 ? previousTempsub : previousYtGrowth;
+    const addedGrowth = MIN_YT_GROWTH + Math.random() * (MAX_YT_GROWTH - MIN_YT_GROWTH);
+    const tempSubGain = offlineGrowthAt(baseForGrowth, previousOfflineduration, now);
 
     const next = {
       ...user,
       userId: user.userId,
       ytid: channelId,
-      ytgrowth: sanitizeNumber(user.ytgrowth, 0) + addedGrowth,
-      tempsub: sanitizeNumber(user.tempsub, 0) + tempSubGain,
+      ytgrowth: previousYtGrowth + addedGrowth,
+      tempsub: previousTempsub + tempSubGain,
       ytofflineduration: now,
       updatedAt: new Date().toISOString(),
     };
@@ -125,9 +129,9 @@ module.exports = async function handler(req, res) {
       userId: user.userId,
       addedGrowth,
       currentYtGrowth: saved.ytgrowth,
-      subGain: tempSubGain,
-      tempsub: saved.tempsub,
-      ytofflineduration: saved.ytofflineduration,
+      subGain: Number(tempSubGain),
+      tempsub: Number(saved.tempsub),
+      ytofflineduration: Number(saved.ytofflineduration),
     }));
   } catch (error) {
     res.writeHead(400);
