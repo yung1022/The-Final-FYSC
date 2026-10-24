@@ -107,9 +107,8 @@ module.exports = async function handler(req, res) {
     const previousYtGrowth = sanitizeNumber(user.ytgrowth, 0);
     const previousTempsub = sanitizeNumber(user.tempsub, 0);
     const previousOfflineduration = sanitizeNumber(user.ytofflineduration, now);
-    const baseForGrowth = previousTempsub > 0 ? previousTempsub : previousYtGrowth;
     const addedGrowth = MIN_YT_GROWTH + Math.random() * (MAX_YT_GROWTH - MIN_YT_GROWTH);
-    const tempSubGain = offlineGrowthAt(baseForGrowth, previousOfflineduration, now);
+    const tempSubGain = offlineGrowthAt(previousYtGrowth, previousOfflineduration, now);
 
     const next = {
       ...user,
