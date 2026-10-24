@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { setStateCookie } = require('../lib/discord-auth');
+const { setStateCookie, setRedirectCookie } = require('../lib/discord-auth');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,6 +20,7 @@ module.exports = async function handler(req, res) {
 
   const clientId = process.env.DISCORD_CLIENT_ID;
   const redirectUri = process.env.DISCORD_REDIRECT_URI;
+  const authRedirect = String(req.query?.authredirect || 'connect');
 
   if (!clientId || !redirectUri) {
     res.writeHead(500);
@@ -38,9 +39,12 @@ module.exports = async function handler(req, res) {
     state,
   });
 
+  const redirectCookie = setRedirectCookie(authRedirect);
+  const stateCookie = setStateCookie(state);
+
   res.writeHead(302, {
     Location: `https://discord.com/api/oauth2/authorize?${params.toString()}`,
-    'Set-Cookie': setStateCookie(state),
+    'Set-Cookie': [stateCookie, redirectCookie],
   });
   res.end();
 };
