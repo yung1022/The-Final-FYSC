@@ -42,8 +42,11 @@
       }
       .button-row {
         margin-top: 20px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
       }
-      .button {
+      .button, .link-button {
         display: inline-block;
         text-decoration: none;
         border: 0;
@@ -54,6 +57,11 @@
         font-weight: 800;
         padding: 12px 18px;
         cursor: pointer;
+      }
+      .link-button {
+        background: rgba(95,212,255,.12);
+        border: 1px solid rgba(95,212,255,.35);
+        color: var(--text);
       }
       .result {
         display: none;
@@ -77,40 +85,29 @@
         word-break: break-all;
       }
       .small { font-size: 12px; color: var(--muted); margin-top: 8px; }
-      .stats {
+      .mini-stats {
         margin-top: 20px;
-        padding: 16px;
-        border: 1px solid var(--panel-border);
-        border-radius: 12px;
-        background: rgba(255,255,255,.02);
-      }
-      .stats[hidden] { display: none; }
-      .stats h2 {
-        margin: 0 0 12px;
-        font-size: 18px;
-      }
-      .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        grid-template-columns: repeat(2, minmax(160px, 1fr));
         gap: 12px;
       }
-      .stat {
-        padding: 10px 12px;
-        border-radius: 10px;
-        background: rgba(95,212,255,.08);
-        border: 1px solid rgba(95,212,255,.18);
+      .mini-stat {
+        padding: 14px 16px;
+        border-radius: 12px;
+        border: 1px solid var(--panel-border);
+        background: rgba(255,255,255,.02);
       }
-      .stat-label {
+      .mini-stat-label {
         display: block;
-        margin-bottom: 4px;
-        font-size: 11px;
         color: var(--muted);
+        font-size: 11px;
         text-transform: uppercase;
         letter-spacing: .08em;
+        margin-bottom: 8px;
       }
-      .stat-value {
-        font-weight: 700;
-        word-break: break-word;
+      .mini-stat-value {
+        font-size: clamp(20px, 3vw, 30px);
+        font-weight: 800;
       }
     </style>
   </head>
@@ -123,44 +120,57 @@
 
       <div class="button-row">
         <button id="discord-button" class="button" type="button">Connect Discord</button>
+        <a id="stats-link" class="link-button" href="/connect/stats.html" hidden>Open stats</a>
       </div>
 
       <div id="result" class="result" aria-live="polite"></div>
-      <div id="stats" class="stats" hidden></div>
+
+      <div id="mini-stats" class="mini-stats" hidden></div>
     </main>
 
     <script>
       const discordButton = document.getElementById('discord-button');
       const result = document.getElementById('result');
       const status = document.getElementById('status');
-      const statsBox = document.getElementById('stats');
+      const statsLink = document.getElementById('stats-link');
+      const miniStats = document.getElementById('mini-stats');
 
       let session = null;
 
-      function renderStats(stats) {
+      function offlineGrowthFor(entry) {
+        const growth = Number(entry?.growth ?? 0);
+        const offlineDuration = Number(entry?.offlineduration ?? 0);
+        const now = Math.floor(Date.now() / 1000);
+        if (!Number.isFinite(growth) || growth === 0 || !Number.isFinite(offlineDuration) || offlineDuration <= 0) {
+          return 0;
+        }
+        return growth * (1 - (0.9999 ** (0.2 * Math.max(0, now - offlineDuration))));
+      }
+
+      function displayedSubscribersFor(entry) {
+        const subscribers = Number(entry?.subscribers ?? 0);
+        return subscribers + offlineGrowthFor(entry);
+      }
+
+      function renderMiniStats(stats) {
         if (!stats || typeof stats !== 'object') {
-          statsBox.hidden = true;
-          statsBox.innerHTML = '';
+          miniStats.hidden = true;
+          miniStats.innerHTML = '';
           return;
         }
 
-        const entries = [
-          ['subscribers', stats.subscribers ?? 'N/A'],
-          ['growth', stats.growth ?? 'N/A'],
-          ['video', stats.video ?? 'N/A'],
-          ['short', stats.short ?? 'N/A'],
-        ];
+        const displayedSubs = Math.round(displayedSubscribersFor(stats));
+        const displayedGrowth = Math.round(offlineGrowthFor(stats));
 
-        statsBox.hidden = false;
-        statsBox.innerHTML = `
-          <h2>Your stats</h2>
-          <div class="stats-grid">
-            ${entries.map(([label, value]) => `
-              <div class="stat">
-                <span class="stat-label">${label}</span>
-                <span class="stat-value">${value}</span>
-              </div>
-            `).join('')}
+        miniStats.hidden = false;
+        miniStats.innerHTML = `
+          <div class="mini-stat">
+            <span class="mini-stat-label">Subscribers</span>
+            <span class="mini-stat-value">${displayedSubs.toLocaleString()}</span>
+          </div>
+          <div class="mini-stat">
+            <span class="mini-stat-label">Growth</span>
+            <span class="mini-stat-value">${displayedGrowth.toLocaleString()}</span>
           </div>
         `;
       }
@@ -169,11 +179,13 @@
         if (session && session.discordUserId) {
           status.textContent = `Discord connected: ${session.discordUsername || 'Unknown'} (${session.discordUserId})`;
           discordButton.textContent = 'Generate connect code';
+          statsLink.hidden = false;
           return;
         }
 
         status.textContent = 'Not connected to Discord yet.';
         discordButton.textContent = 'Connect Discord';
+        statsLink.hidden = true;
       }
 
       async function loadSession() {
@@ -181,18 +193,18 @@
           const response = await fetch('/api/discord/me', { credentials: 'same-origin' });
           if (!response.ok) {
             session = null;
-            renderStats(null);
+            renderMiniStats(null);
             updateUI();
             return;
           }
 
           const data = await response.json();
           session = data && data.session ? data.session : null;
-          renderStats(data && data.stats ? data.stats : null);
+          renderMiniStats(data && data.stats ? data.stats : null);
           updateUI();
         } catch (error) {
           session = null;
-          renderStats(null);
+          renderMiniStats(null);
           updateUI();
         }
       }
