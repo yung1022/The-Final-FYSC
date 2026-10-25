@@ -1,4 +1,10 @@
-const { clearCookie, getStateFromRequest, setSessionCookie } = require('../lib/discord-auth');
+const {
+  clearCookie,
+  clearRedirectCookie,
+  getRedirectFromRequest,
+  getStateFromRequest,
+  setSessionCookie,
+} = require('../lib/discord-auth');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,6 +20,7 @@ module.exports = async function handler(req, res) {
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const savedState = getStateFromRequest(req);
+  const redirectTarget = getRedirectFromRequest(req) || 'connect';
 
   if (!code || !state || !savedState || state !== savedState) {
     res.writeHead(400);
@@ -71,8 +78,25 @@ module.exports = async function handler(req, res) {
 
     const cookies = [
       clearCookie('discord_oauth_state'),
+      clearRedirectCookie(),
       setSessionCookie(session),
     ];
+
+    if (redirectTarget === 'market') {
+      const params = new URLSearchParams({
+        discordUserId: session.discordUserId,
+        discordUsername: session.discordUsername,
+        avatar: session.avatar || '',
+        connectedAt: session.connectedAt,
+      });
+
+      res.writeHead(302, {
+        Location: `https://dcfyscmarket.vercel.app/?${params.toString()}`,
+        'Set-Cookie': cookies,
+      });
+      res.end();
+      return;
+    }
 
     res.writeHead(302, {
       Location: '/connect',
