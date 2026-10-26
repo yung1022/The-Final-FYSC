@@ -24,7 +24,7 @@ Persistence:
 Notes:
 - Firebase Realtime Database rules must allow the deployed API to read and write `/leaderboard`.
 - Firebase is fetched every 15 seconds. Between fetches, each player is recalculated locally at a random interval between 5 and 10 seconds using the last fetched data and current offline growth.
-- Ranking uses the *displayed* subscriber count, i.e. the stored count plus offline growth. The server applies the growth formula to **every** entry and only then takes the top 50 (`sortByDisplayedSubscribers` then `slice(0, 50)` in `lib/offline-growth.js`). Sorting on the stored count before slicing would drop players whose pending growth lifts them into the top 50.
+- Ranking uses the *displayed* subscriber count, i.e. the stored count plus the remaining offline growth. The server applies the growth formula to **every** entry and only then takes the top 50 (`sortByDisplayedSubscribers` then `slice(0, 50)` in `lib/offline-growth.js`).
 - The same formula lives in three places and they must stay in sync: `lib/offline-growth.js` (Vercel API), `leaderboard/offline-growth.js` (standalone Node server), and `calculateOfflineGrowthAt` in `leaderboard/script.js` (browser).
 - The page uses the official NCS playlist `PL1rcvJR5LYrrz1XiNaDN` in a hidden autoplaying loop. Browser autoplay policies may require one interaction before audio can play.
-- Offline growth is calculated in the browser as `growth * (1 - 0.9999 ^ (0.2 * (currentUnixTime - offlineduration)))` and is not written back to Firebase.
+- The `growth` stored in Firebase is only worth its full value at the snapshot time `offlineduration`; as offline time passes the decayed share is lost. Offline growth is calculated in the browser as `growth - growth * (1 - 0.9999 ^ (0.2 * (currentUnixTime - offlineduration)))` (equivalently `growth * 0.9999 ^ (0.2 * elapsed)`) and is not written back to Firebase.

@@ -8,19 +8,19 @@
  * crossover, or - when no connected duel can ever cross - the tightest gap.
  *
  * The ETA (crossover) is solved in closed form from the offline-growth formula
- * in `offline-growth.js`. Both counts follow
+ * in `offline-growth.js`. The stored `growth` value is only worth its full
+ * amount at the snapshot time and decays afterwards, so both counts follow
  *
- *   displayed(t) = subscribers + growth * (1 - b ^ (k * (now + t - offlineduration)))
+ *   displayed(t) = subscribers + growth * b ^ (k * (now + t - offlineduration))
  *
  * so the difference between a chaser and the channel it is chasing is linear in
- * u = b ^ (k * t):
+ * w = b ^ (k * t):
  *
- *   difference = (chaserCeiling - defenderCeiling)
- *              - u * (chaserGrowth * chaserDecay - defenderGrowth * defenderDecay)
+ *   difference = (chaserSubs - defenderSubs)
+ *              + w * (chaserGrowth * chaserDecay - defenderGrowth * defenderDecay)
  *
- * where ceiling = subscribers + growth and
- * decay = b ^ (k * (now - offlineduration)). Solving difference = 0 gives u, and
- * t = ln(u) / (k * ln(b)).
+ * where decay = b ^ (k * (now - offlineduration)). Solving difference = 0 gives
+ * w, and t = ln(w) / (k * ln(b)).
  */
 
 (function (root, factory) {
@@ -49,12 +49,12 @@
   const OFFLINE_GROWTH_TIME_SCALE = offlineGrowth.OFFLINE_GROWTH_TIME_SCALE;
   const DECAY_RATE = OFFLINE_GROWTH_TIME_SCALE * Math.log(OFFLINE_GROWTH_DECAY_BASE); // negative
 
-  /** Final displayed count once every pending subscriber has accrued. */
+  /** Displayed count now: stored subs plus whatever growth has not decayed yet. */
   function ceilingSubscribers(entry) {
-    return offlineGrowth.readSubscribers(entry) + Math.max(0, offlineGrowth.readGrowth(entry));
+    return offlineGrowth.displayedSubscribers(entry);
   }
 
-  /** Subscribers still to accrue per second at `unixTime` (decays towards zero). */
+  /** Subscribers of the pending growth still showing per second at `unixTime` (decays towards zero). */
   function remainingGrowthRate(entry, unixTime) {
     const elapsedSeconds = Math.max(0, unixTime - offlineGrowth.readOfflineTimestamp(entry));
     return offlineGrowth.readGrowth(entry) *
@@ -71,14 +71,22 @@
       offlineGrowth.displayedSubscribers(defender, unixTime);
     if (differenceNow >= 0) return 0;
 
+    // difference(t) = (chaserSubs - defenderSubs) + w * slope, with w = b^(k*t)
+    // decaying from 1 towards 0. A crossing needs the chaser ahead on stored
+    // subscribers and a negative slope, so the gap closes as the growths decay.
+    const subsGap =
+      offlineGrowth.readSubscribers(chaser) -
+      offlineGrowth.readSubscribers(defender);
+    if (subsGap <= 0) return Number.POSITIVE_INFINITY;
+
     const growthSlope = remainingGrowthRate(chaser, unixTime) - remainingGrowthRate(defender, unixTime);
-    if (growthSlope === 0) return Number.POSITIVE_INFINITY; // the gap never moves
+    if (growthSlope >= 0) return Number.POSITIVE_INFINITY; // the gap never narrows
 
-    const remainingFraction = (ceilingSubscribers(chaser) - ceilingSubscribers(defender)) / growthSlope;
-    if (!(remainingFraction > 0) || remainingFraction > 1) return Number.POSITIVE_INFINITY;
-    if (remainingFraction === 1) return 0;
+    const decayFraction = subsGap / -growthSlope;
+    if (!(decayFraction > 0) || decayFraction > 1) return Number.POSITIVE_INFINITY;
+    if (decayFraction === 1) return 0;
 
-    return Math.log(remainingFraction) / DECAY_RATE;
+    return Math.log(decayFraction) / DECAY_RATE;
   }
 
   /** Every connected-rank duel in a ranked list: (2 vs 3), (4 vs 5), (6 vs 7), ... */

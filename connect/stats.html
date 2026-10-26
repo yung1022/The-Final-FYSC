@@ -122,7 +122,10 @@
         if (!Number.isFinite(growth) || growth === 0 || !Number.isFinite(offlineDuration) || offlineDuration <= 0) {
           return 0;
         }
-        return growth * (1 - (0.9999 ** (0.2 * Math.max(0, now - offlineDuration))));
+        // The stored growth is only worth its full value at the snapshot time;
+        // the decayed share is lost and subtracted from the gain.
+        const lost = growth * (1 - (0.9999 ** (0.2 * Math.max(0, now - offlineDuration))));
+        return growth - lost;
       }
 
       function displayedSubscribersFor(entry) {
