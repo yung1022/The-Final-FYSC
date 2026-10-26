@@ -150,11 +150,6 @@
         return growth - lost;
       }
 
-      function displayedSubscribersFor(entry) {
-        const subscribers = Number(entry?.subscribers ?? 0);
-        return subscribers + offlineGrowthFor(entry);
-      }
-
       function renderMiniStats(stats) {
         if (!stats || typeof stats !== 'object') {
           miniStats.hidden = true;
@@ -162,18 +157,18 @@
           return;
         }
 
-        const displayedSubs = Math.round(displayedSubscribersFor(stats));
-        const displayedGrowth = Math.round(offlineGrowthFor(stats));
+        const subs = Math.round(Number(stats?.subscribers ?? 0));
+        const remainingGrowth = Math.round(offlineGrowthFor(stats));
 
         miniStats.hidden = false;
         miniStats.innerHTML = `
           <div class="mini-stat">
             <span class="mini-stat-label">Subscribers</span>
-            <span class="mini-stat-value">${displayedSubs.toLocaleString()}</span>
+            <span class="mini-stat-value">${subs.toLocaleString()}</span>
           </div>
           <div class="mini-stat">
-            <span class="mini-stat-label">Growth</span>
-            <span class="mini-stat-value">${displayedGrowth.toLocaleString()}</span>
+            <span class="mini-stat-label">Remaining growth</span>
+            <span class="mini-stat-value">${remainingGrowth.toLocaleString()}</span>
           </div>
         `;
       }

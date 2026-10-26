@@ -128,11 +128,6 @@
         return growth - lost;
       }
 
-      function displayedSubscribersFor(entry) {
-        const subscribers = Number(entry?.subscribers ?? 0);
-        return subscribers + offlineGrowthFor(entry);
-      }
-
       function number(value) {
         const numeric = Number(value ?? 0);
         return Number.isFinite(numeric) ? numeric : 0;
@@ -151,8 +146,6 @@
 
         const stats = data.stats || {};
         const offline = offlineGrowthFor(stats);
-        const displayed = displayedSubscribersFor(stats);
-        const totalGrowth = number(stats.growth);
         const storedSubscribers = number(stats.subscribers);
         const video = number(stats.video);
         const short = number(stats.short);
@@ -171,15 +164,7 @@
               <span class="stat-value">${Math.round(storedSubscribers).toLocaleString()}</span>
             </div>
             <div class="stat">
-              <span class="stat-label">Displayed subscribers</span>
-              <span class="stat-value">${Math.round(displayed).toLocaleString()}</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">Stored growth</span>
-              <span class="stat-value">${Math.round(totalGrowth).toLocaleString()}</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">Displayed growth</span>
+              <span class="stat-label">Remaining growth</span>
               <span class="stat-value">${Math.round(offline).toLocaleString()}</span>
             </div>
             <div class="stat">

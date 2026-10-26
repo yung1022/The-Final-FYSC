@@ -73,12 +73,11 @@ function fmtNumber(n){
 }
 
 /**
- * Displayed subscribers, i.e. the stored count plus offline growth. The formula
- * itself lives in `offline-growth.js`, which is the same copy the battle ETAs
- * are solved from, so the counters and the battle board can never disagree.
+ * The subscriber count shown on each card. Growth is never added to it — the
+ * growth value only decides which fire tier a cell earns (`getMdmGain`).
  */
 function getDisplayedSubscribers(item){
-  return offlineGrowth.displayedSubscribers(item);
+  return offlineGrowth.readSubscribers(item);
 }
 
 function calculateOfflineGrowthPerSecond(growth, offlineTimestamp){
@@ -244,12 +243,15 @@ function renderBattleBoard(){
 }
 
 /**
- * The fire tier used to be picked straight from the stored `growth` value; now
- * it uses the same offline growth the counters display, i.e. how much of that
- * growth has actually accrued since the offline snapshot.
+ * The growth value never adds to the displayed subscriber count; it only
+ * determines which fire tier a cell earns. It uses the remaining offline
+ * growth, i.e. how much of the snapshot growth has not decayed yet.
  */
 function getMdmGain(item){
-  const gain = getDisplayedSubscribers(item) - Number(item.subscribers || 0);
+  const gain = offlineGrowth.offlineGrowthAt(
+    offlineGrowth.readGrowth(item),
+    offlineGrowth.readOfflineTimestamp(item)
+  );
   return Number.isFinite(gain) ? Math.max(0, Math.round(gain)) : 0;
 }
 
