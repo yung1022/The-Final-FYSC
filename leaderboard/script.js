@@ -75,7 +75,8 @@ function fmtNumber(n){
 /**
  * The subscriber count shown on each card: the stored count plus the remaining
  * offline growth (the snapshot growth minus what has decayed away). The growth
- * value itself only decides which fire tier a cell earns (`getMdmGain`).
+ * value minus the accrued offline growth only decides which fire tier a cell
+ * earns (`getMdmGain`).
  */
 function getDisplayedSubscribers(item){
   return offlineGrowth.displayedSubscribers(item);
@@ -244,12 +245,15 @@ function renderBattleBoard(){
 }
 
 /**
- * The fire tier is driven by the offline gain: how much growth has actually
- * accrued since the offline snapshot, per the shared offline-growth formula.
+ * The fire tier is driven by the remaining growth: the stored growth value minus
+ * what has already accrued since the offline snapshot, per the shared
+ * offline-growth formula. This is the same quantity the "fastest growing" panel
+ * ranks on, just not expressed per second.
  */
 function getMdmGain(item){
-  const gain = offlineGrowth.offlineGrowthAt(
-    offlineGrowth.readGrowth(item),
+  const growth = offlineGrowth.readGrowth(item);
+  const gain = growth - offlineGrowth.offlineGrowthAt(
+    growth,
     offlineGrowth.readOfflineTimestamp(item)
   );
   return Number.isFinite(gain) ? Math.max(0, Math.round(gain)) : 0;
