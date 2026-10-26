@@ -243,8 +243,13 @@ function renderBattleBoard(){
   highlightBattleCells(duel);
 }
 
+/**
+ * The fire tier used to be picked straight from the stored `growth` value; now
+ * it uses the same offline growth the counters display, i.e. how much of that
+ * growth has actually accrued since the offline snapshot.
+ */
 function getMdmGain(item){
-  const gain = Number(item.growth ?? item.growthCount ?? item.growthValue ?? 0);
+  const gain = getDisplayedSubscribers(item) - Number(item.subscribers || 0);
   return Number.isFinite(gain) ? Math.max(0, Math.round(gain)) : 0;
 }
 
@@ -299,10 +304,12 @@ function createCell(rank, item, previousValue, key){
   const rankNumber = document.createElement('span');
   rankNumber.className = 'rank-number';
   rankNumber.textContent = `#${rank}`;
-  rankEl.appendChild(rankNumber);
 
+  // The fire lives inside the rank-number box, not the whole rank column.
   const fire = createMdmFire(item);
-  if (fire) rankEl.appendChild(fire);
+  if (fire) rankNumber.appendChild(fire);
+
+  rankEl.appendChild(rankNumber);
 
   const imageUrl = item.image || item.imageUrl || item.avatarUrl;
   const imageEl = document.createElement(imageUrl ? 'img' : 'span');
