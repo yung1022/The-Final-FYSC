@@ -244,9 +244,8 @@ function renderBattleBoard(){
 }
 
 /**
- * The growth value never adds to the displayed subscriber count; it only
- * determines which fire tier a cell earns. It uses the remaining offline
- * growth, i.e. how much of the snapshot growth has not decayed yet.
+ * The fire tier is driven by the offline gain: how much growth has actually
+ * accrued since the offline snapshot, per the shared offline-growth formula.
  */
 function getMdmGain(item){
   const gain = offlineGrowth.offlineGrowthAt(

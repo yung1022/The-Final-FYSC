@@ -6,13 +6,10 @@
  *   - the standalone Node server (`db.js` and `api/leaderboard.js` require this file),
  *   - the browser board, which loads this file as a plain script and reads `window.OfflineGrowth`.
  *
- * Formula: the `growth` value stored in the realtime database is only valid at
- * the snapshot time (`offlineduration`, a Unix timestamp in seconds). The longer
- * the player has been offline since that snapshot, the more of that growth has
- * decayed away, so the offline gain is the stored growth minus what was lost:
+ * Formula: the longer a player has been offline, the closer their pending growth
+ * gets to the full `growth` value:
  *
- *   lost          = growth * (1 - 0.9999 ^ (0.2 * (now - offlineduration)))
- *   offlineGrowth = growth - lost
+ *   offlineGrowth = growth * (1 - 0.9999 ^ (0.2 * (now - offlineduration)))
  *
  * `offlineduration` is the Unix timestamp in seconds at which the snapshot was
  * written. The displayed subscriber count is the stored count plus the growth
@@ -73,24 +70,17 @@
     if (!Number.isFinite(now)) return 0;
 
     const elapsedSeconds = Math.max(0, now - offlineAt);
-    // The snapshot's growth is only worth its full value at the snapshot moment;
-    // everything decayed since then is lost and must be subtracted.
-    const lostGrowth = growthValue * (1 - (OFFLINE_GROWTH_DECAY_BASE ** (OFFLINE_GROWTH_TIME_SCALE * elapsedSeconds)));
-    return growthValue - lostGrowth;
+    return growthValue * (1 - (OFFLINE_GROWTH_DECAY_BASE ** (OFFLINE_GROWTH_TIME_SCALE * elapsedSeconds)));
   }
 
   function offlineGrowth(growth, offlineTimestamp, currentUnixTimeValue = currentUnixTime()) {
     return offlineGrowthAt(growth, offlineTimestamp, currentUnixTimeValue);
   }
 
-    /**
-   * Growth lost in a single second, used by the "fastest growing" panel. The
-   * remaining offline growth now decays over time, so this is the (positive)
-   * magnitude of the per-second loss.
-   */
+  /** Growth gained in a single second, used by the "fastest growing" panel. */
   function offlineGrowthPerSecond(growth, offlineTimestamp, currentUnixTimeValue = currentUnixTime()) {
-    return offlineGrowthAt(growth, offlineTimestamp, currentUnixTimeValue) -
-      offlineGrowthAt(growth, offlineTimestamp, currentUnixTimeValue + 1);
+    return offlineGrowthAt(growth, offlineTimestamp, currentUnixTimeValue + 1) -
+      offlineGrowthAt(growth, offlineTimestamp, currentUnixTimeValue);
   }
 
   function displayedSubscribers(entry, currentUnixTimeValue = currentUnixTime()) {

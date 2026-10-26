@@ -52,10 +52,8 @@ test('duels only pair connected ranks and skip the top seat', () => {
 });
 
 test('crossover agrees with a numeric scan of the same offline-growth formula', () => {
-  // Under the decay formula the stored growth only shrinks, so a chaser with a
-  // larger stored subs base (not pending growth) is the one that can cross.
-  const chaser = makeEntry('Chaser', 500_000, 100_000);
-  const defender = makeEntry('Defender', 0, 1_000_000);
+  const chaser = makeEntry('Chaser', 0, 1_000_000);
+  const defender = makeEntry('Defender', 500_000, 100_000);
 
   const closed = battleBoard.crossoverSeconds(chaser, defender, NOW);
   const scanned = bruteForceCrossover(chaser, defender, NOW);
@@ -156,27 +154,23 @@ test('displayed values match the documented offline-growth formula', () => {
   const elapsedSeconds = 3_600;
   const entry = makeEntry('Growing', 1_000, 5_000, elapsedSeconds);
 
-  // The stored growth decays from its full value at the snapshot; the offline
-  // gain is what remains after the lost share is subtracted.
-  const lostGrowth = 5_000 * (1 - 0.9999 ** (0.2 * elapsedSeconds));
-  const expectedGrowth = 5_000 - lostGrowth;
+  const expectedGrowth = 5_000 * (1 - 0.9999 ** (0.2 * elapsedSeconds));
   assert.equal(offlineGrowth.offlineGrowthAt(5_000, NOW - elapsedSeconds, NOW), expectedGrowth);
   assert.equal(offlineGrowth.displayedSubscribers(entry, NOW), 1_000 + expectedGrowth);
   assert.ok(offlineGrowth.offlineGrowthPerSecond(5_000, NOW - elapsedSeconds, NOW) > 0);
 });
 
-test('ranking uses stored counts, since offline growth only decays', () => {
+test('ranking uses displayed counts, so pending growth can climb the board', () => {
   const stored = [
     { name: 'Stored Leader', subscribers: 1_000_000, growth: 0, offlineduration: NOW },
-    { name: 'Decaying Climber', subscribers: 100_000, growth: 2_000_000, offlineduration: NOW - 86_400 },
+    { name: 'Climber', subscribers: 100_000, growth: 2_000_000, offlineduration: NOW - 86_400 },
   ];
 
-  // Pending growth no longer accrues, so the stored base decides the order.
   assert.deepEqual(offlineGrowth.sortByDisplayedSubscribers(stored, NOW).map((entry) => entry.name), [
+    'Climber',
     'Stored Leader',
-    'Decaying Climber',
   ]);
-  assert.equal(offlineGrowth.topByDisplayedSubscribers(stored, 1, NOW)[0].name, 'Stored Leader');
+  assert.equal(offlineGrowth.topByDisplayedSubscribers(stored, 1, NOW)[0].name, 'Climber');
 });
 
 test('growth maths guards against missing or invalid values', () => {

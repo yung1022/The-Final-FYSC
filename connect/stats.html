@@ -122,10 +122,12 @@
         if (!Number.isFinite(growth) || growth === 0 || !Number.isFinite(offlineDuration) || offlineDuration <= 0) {
           return 0;
         }
-        // The stored growth is only worth its full value at the snapshot time;
-        // the decayed share is lost and subtracted from the gain.
-        const lost = growth * (1 - (0.9999 ** (0.2 * Math.max(0, now - offlineDuration))));
-        return growth - lost;
+        return growth * (1 - (0.9999 ** (0.2 * Math.max(0, now - offlineDuration))));
+      }
+
+      function displayedSubscribersFor(entry) {
+        const subscribers = Number(entry?.subscribers ?? 0);
+        return subscribers + offlineGrowthFor(entry);
       }
 
       function number(value) {
@@ -146,6 +148,8 @@
 
         const stats = data.stats || {};
         const offline = offlineGrowthFor(stats);
+        const displayed = displayedSubscribersFor(stats);
+        const totalGrowth = number(stats.growth);
         const storedSubscribers = number(stats.subscribers);
         const video = number(stats.video);
         const short = number(stats.short);
@@ -164,7 +168,15 @@
               <span class="stat-value">${Math.round(storedSubscribers).toLocaleString()}</span>
             </div>
             <div class="stat">
-              <span class="stat-label">Remaining growth</span>
+              <span class="stat-label">Displayed subscribers</span>
+              <span class="stat-value">${Math.round(displayed).toLocaleString()}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Stored growth</span>
+              <span class="stat-value">${Math.round(totalGrowth).toLocaleString()}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Offline growth</span>
               <span class="stat-value">${Math.round(offline).toLocaleString()}</span>
             </div>
             <div class="stat">

@@ -23,9 +23,9 @@ main{margin:0 auto;width:min(100%,1600px)}
 .battle-value{color:#9fb2c4;font-variant-numeric:tabular-nums}
 .battle-winner,.battle-winner .battle-rank,.battle-winner .battle-value{color:#75e0a2;font-weight:700}
 .battle-chaser,.battle-chaser .battle-rank,.battle-chaser .battle-value{color:#f5c76b}
-.rank-number{position:relative;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
-.rank-number .rank-text{position:relative;z-index:2}
-.mdm-fire{position:absolute;inset:0;display:grid;place-items:center;font-size:16px;line-height:1;z-index:1;overflow:hidden}
+.rank-number{position:relative;display:inline-flex;align-items:center;font-variant-numeric:tabular-nums}
+.rank-text{position:relative;z-index:2}
+.mdm-fire{position:absolute;left:50%;top:50%;width:1.1em;height:1.6em;transform:translate(-50%,-58%);display:grid;place-items:center;font-size:16px;line-height:1;z-index:1;overflow:hidden;pointer-events:none}
 .mdm-fire.fire-blue{filter:hue-rotate(180deg) saturate(1.15) drop-shadow(0 0 3px #168cff)}
 .mdm-fire.fire-yellow{filter:hue-rotate(25deg) saturate(1.4) drop-shadow(0 0 3px #ffd21f)}
 .mdm-fire.fire-orange{filter:hue-rotate(5deg) saturate(1.7) drop-shadow(0 0 3px #ff8a00)}

@@ -144,10 +144,7 @@
         if (!Number.isFinite(growth) || growth === 0 || !Number.isFinite(offlineDuration) || offlineDuration <= 0) {
           return 0;
         }
-        // The stored growth is only worth its full value at the snapshot time;
-        // the decayed share is lost and subtracted from the gain.
-        const lost = growth * (1 - (0.9999 ** (0.2 * Math.max(0, now - offlineDuration))));
-        return growth - lost;
+        return growth * (1 - (0.9999 ** (0.2 * Math.max(0, now - offlineDuration))));
       }
 
       function renderMiniStats(stats) {
@@ -157,18 +154,18 @@
           return;
         }
 
-        const subs = Math.round(Number(stats?.subscribers ?? 0));
-        const remainingGrowth = Math.round(offlineGrowthFor(stats));
+        const displayedSubs = Math.round(Number(stats?.subscribers ?? 0)) + Math.round(offlineGrowthFor(stats));
+        const displayedGrowth = Math.round(offlineGrowthFor(stats));
 
         miniStats.hidden = false;
         miniStats.innerHTML = `
           <div class="mini-stat">
             <span class="mini-stat-label">Subscribers</span>
-            <span class="mini-stat-value">${subs.toLocaleString()}</span>
+            <span class="mini-stat-value">${displayedSubs.toLocaleString()}</span>
           </div>
           <div class="mini-stat">
-            <span class="mini-stat-label">Remaining growth</span>
-            <span class="mini-stat-value">${remainingGrowth.toLocaleString()}</span>
+            <span class="mini-stat-label">Growth</span>
+            <span class="mini-stat-value">${displayedGrowth.toLocaleString()}</span>
           </div>
         `;
       }
