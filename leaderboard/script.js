@@ -281,8 +281,8 @@ function createMdmFire(item){
       media.playsInline = true;
       media.preload = 'auto';
       if (effect.poster) media.poster = effect.poster;
-      if (effect.fit) media.style.objectFit = effect.fit;
     }
+    if (effect.fit) media.style.objectFit = effect.fit;
     fire.appendChild(media);
     return fire;
   }
