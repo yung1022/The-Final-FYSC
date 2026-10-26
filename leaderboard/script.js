@@ -73,11 +73,12 @@ function fmtNumber(n){
 }
 
 /**
- * The subscriber count shown on each card. Growth is never added to it — the
- * growth value only decides which fire tier a cell earns (`getMdmGain`).
+ * The subscriber count shown on each card: the stored count plus the remaining
+ * offline growth (the snapshot growth minus what has decayed away). The growth
+ * value itself only decides which fire tier a cell earns (`getMdmGain`).
  */
 function getDisplayedSubscribers(item){
-  return offlineGrowth.readSubscribers(item);
+  return offlineGrowth.displayedSubscribers(item);
 }
 
 function calculateOfflineGrowthPerSecond(growth, offlineTimestamp){
@@ -305,11 +306,15 @@ function createCell(rank, item, previousValue, key){
 
   const rankNumber = document.createElement('span');
   rankNumber.className = 'rank-number';
-  rankNumber.textContent = `#${rank}`;
 
   // The fire lives inside the rank-number box, not the whole rank column.
   const fire = createMdmFire(item);
   if (fire) rankNumber.appendChild(fire);
+
+  const rankText = document.createElement('span');
+  rankText.className = 'rank-text';
+  rankText.textContent = `#${rank}`;
+  rankNumber.appendChild(rankText);
 
   rankEl.appendChild(rankNumber);
 

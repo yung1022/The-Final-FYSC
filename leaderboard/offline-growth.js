@@ -63,7 +63,7 @@
     return Math.floor(Date.now() / 1000);
   }
 
-  function offlineGrowthAt(growth, offlineTimestamp, currentUnixTimeValue) {
+  function offlineGrowthAt(growth, offlineTimestamp, currentUnixTimeValue = currentUnixTime()) {
     const growthValue = toFiniteNumber(growth, 0);
     const offlineAt = toFiniteNumber(offlineTimestamp, 0);
     const now = toFiniteNumber(currentUnixTimeValue, NaN);
