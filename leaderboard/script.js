@@ -101,11 +101,12 @@ function normalizeEntry(item){
     entry.count ??
     0
   );
+  const tempSub = Number(entry.tempsub ?? 0);
 
   return {
     ...entry,
     name: entry.name || entry.displayName || entry.username || 'Unknown',
-    subscribers: Number.isFinite(subs) ? subs : 0,
+    subscribers: (Number.isFinite(subs) ? subs : 0) + (Number.isFinite(tempSub) ? tempSub : 0),
     growth: Number(entry.growth ?? 0),
     offlineduration: Number(entry.offlineduration ?? 0),
   };

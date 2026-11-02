@@ -38,7 +38,7 @@
   }
 
   function readSubscribers(entry) {
-    return toFiniteNumber(
+    const base = toFiniteNumber(
       entry?.subscribers ??
       entry?.subscriberCount ??
       entry?.subs ??
@@ -46,6 +46,9 @@
       entry?.subscriber_count,
       0
     );
+    // `tempsub` is the accumulated YouTube-post sub total stored in Firebase;
+    // when present it is part of the actual sub count shown on the board.
+    return base + toFiniteNumber(entry?.tempsub, 0);
   }
 
   function readGrowth(entry) {
