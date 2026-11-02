@@ -87,7 +87,17 @@
   }
 
   function displayedSubscribers(entry, currentUnixTimeValue = currentUnixTime()) {
-    return readSubscribers(entry) + offlineGrowthAt(
+    // Pending YouTube-post growth (`ytgrowth` since `ytofflineduration`) is what
+    // turns into `tempsub` on the server when the next post is processed. Adding
+    // it here keeps every local recalculation (the per-player counter updates
+    // that run between the 15-second data fetches) in sync with the freshest
+    // tempsub the server will eventually store.
+    const ytPendingGrowth = offlineGrowthAt(
+      toFiniteNumber(entry?.ytgrowth, 0),
+      toFiniteNumber(entry?.ytofflineduration, 0),
+      currentUnixTimeValue
+    );
+    return readSubscribers(entry) + ytPendingGrowth + offlineGrowthAt(
       readGrowth(entry),
       readOfflineTimestamp(entry),
       currentUnixTimeValue

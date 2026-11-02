@@ -101,12 +101,16 @@ function normalizeEntry(item){
     entry.count ??
     0
   );
-  const tempSub = Number(entry.tempsub ?? 0);
-
+  // `tempsub` is added by offline-growth.readSubscribers(); keep it in the
+  // normalized entry untouched.
   return {
     ...entry,
     name: entry.name || entry.displayName || entry.username || 'Unknown',
-    subscribers: (Number.isFinite(subs) ? subs : 0) + (Number.isFinite(tempSub) ? tempSub : 0),
+    // NOTE: `tempsub` is deliberately NOT folded into `subscribers` here.
+    // `offline-growth.js` (readSubscribers) already adds it, and this function
+    // runs on already-normalized entries too (renderLeaderboard), so adding it
+    // again would double-count the temp subs on some counter updates.
+    subscribers: Number.isFinite(subs) ? subs : 0,
     growth: Number(entry.growth ?? 0),
     offlineduration: Number(entry.offlineduration ?? 0),
   };

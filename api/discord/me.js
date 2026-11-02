@@ -21,9 +21,19 @@ function normalizeStats(data) {
   const short = Number(data.short ?? data.shortCount ?? 0);
   const offlineDuration = Number(data.offlineduration ?? 0);
   const now = Math.floor(Date.now() / 1000);
+  // Pending YouTube-post growth that will become `tempsub` on the next post;
+  // include both so the shown count matches the leaderboard.
+  const tempSub = Number(data.tempsub ?? 0);
+  const ytPending = offlineGrowthAt(
+    Number(data.ytgrowth ?? 0),
+    Number(data.ytofflineduration ?? 0),
+    now
+  );
 
   return {
-    subscribers: Number.isFinite(subscribers) ? Math.round(displayedSubscribers({ subscribers, growth, offlineduration: offlineDuration }, now)) : 0,
+    subscribers: Number.isFinite(subscribers)
+      ? Math.round(displayedSubscribers({ ...data, subscribers, growth, offlineduration: offlineDuration, tempsub: tempSub }, now) + ytPending)
+      : 0,
     growth: Number.isFinite(growth) ? Math.round(offlineGrowthAt(growth, offlineDuration, now)) : 0,
     video: Number.isFinite(video) ? video : 0,
     short: Number.isFinite(short) ? short : 0,
