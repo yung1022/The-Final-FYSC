@@ -116,6 +116,16 @@ async function patchEntry(entry, key) {
   return entry;
 }
 
+async function readEntry(userId) {
+  const response = await fetch(firebaseUrl(userId));
+  if (!response.ok) {
+    throw new Error(`Database read failed with HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data && typeof data === 'object' ? data : null;
+}
+
 async function addEntry(entry) {
   return writeEntry({ ...entry, id: entry.userId }, entry.userId);
 }
@@ -255,7 +265,25 @@ module.exports = async function handler(req, res) {
       };
 
       if (updating) {
-        const updatedEntry = { ...entryData, id: userId, updatedAt: new Date().toISOString() };
+        // Keep the accumulated YouTube `tempsub` (and yt growth fields) that the
+        // regular update payload doesn't carry; without this the PATCH/PUT would
+        // erase them from Firebase on every leaderboard refresh.
+        const existing = await readEntry(userId);
+        const updatedEntry = {
+          ...existing,
+          ...entryData,
+          tempsub: body.tempsub != null
+            ? Number(body.tempsub)
+            : Number(existing?.tempsub ?? 0),
+          ytgrowth: body.ytgrowth != null
+            ? Number(body.ytgrowth)
+            : Number(existing?.ytgrowth ?? 0),
+          ytofflineduration: body.ytofflineduration != null
+            ? Number(body.ytofflineduration)
+            : Number(existing?.ytofflineduration ?? 0),
+          id: userId,
+          updatedAt: new Date().toISOString(),
+        };
         await patchEntry(updatedEntry, userId);
         res.writeHead(200);
         res.end(JSON.stringify({ message: 'Leaderboard entry updated', entry: updatedEntry }));

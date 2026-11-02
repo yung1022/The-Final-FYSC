@@ -99,6 +99,7 @@ const server = http.createServer(async (req, res) => {
         offlineduration: offlineDuration,
         guildId: body.guildId || null,
         userId: body.userId || null,
+        ...(body.tempsub != null ? { tempsub: Number(body.tempsub) } : {}),
       });
 
       sendJson(res, 200, {
