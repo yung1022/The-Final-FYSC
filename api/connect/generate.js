@@ -1,4 +1,4 @@
-const { requireDiscordSession, makeConnectId } = require('../lib/discord-auth');
+const { requireDiscordSession, makeConnectId, formatConnectId, normalizeConnectId } = require('../lib/discord-auth');
 
 const FIREBASE_URL = process.env.FIREBASE_DB_URL?.replace(/\/$/, '');
 const CONNECT_TTL_MS = 10 * 60 * 1000;
@@ -48,6 +48,7 @@ module.exports = async function handler(req, res) {
   try {
     const session = requireDiscordSession(req);
     const connectId = makeConnectId();
+    const displayId = formatConnectId(connectId);
     const firebasePath = `youtube-connections/${encodeURIComponent(connectId)}`;
     const now = new Date();
     const expiresAt = new Date(now.getTime() + CONNECT_TTL_MS).toISOString();
@@ -67,8 +68,9 @@ module.exports = async function handler(req, res) {
     res.end(JSON.stringify({
       message: 'Connect code generated',
       connectId,
+      connectCode: displayId,
       discordUserId: session.discordUserId,
-      command: `!connect ${connectId}`,
+      command: `!connect ${displayId}`,
       apiUrl: `/api/connect/${connectId}?channel=YOUTUBE_CHANNEL_ID`,
       expiresAt,
       expiresInMinutes: 10,

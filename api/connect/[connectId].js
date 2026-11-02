@@ -1,3 +1,5 @@
+const { normalizeConnectId } = require('../lib/discord-auth');
+
 const FIREBASE_URL = process.env.FIREBASE_DB_URL?.replace(/\/$/, '');
 
 function firebaseUrl(path = '') {
@@ -69,8 +71,10 @@ module.exports = async function handler(req, res) {
 
   const url = new URL(req.url, 'https://example.com');
   const pathParts = url.pathname.split('/').filter(Boolean);
+  // The code is shown to users with dashes (A1B2-C3D4-E5F6) so YouTube chat
+  // doesn't swallow it; normalize strips those delimiters back out.
   const connectId = pathParts.length >= 2 && pathParts[0] === 'api' && pathParts[1] === 'connect'
-    ? sanitizeString(pathParts[2])
+    ? sanitizeString(normalizeConnectId(pathParts[2]))
     : null;
 
   if (!connectId) {

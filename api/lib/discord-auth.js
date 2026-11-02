@@ -126,7 +126,23 @@ function clearRedirectCookie() {
 }
 
 function makeConnectId() {
-  return crypto.randomBytes(5).toString('hex').toUpperCase();
+  return crypto.randomBytes(6).toString('hex').toUpperCase();
+}
+
+/**
+ * YouTube chat treats a bare 12-character alphanumeric blob as spam/links and
+ * eats it, so the command shown to users groups the code with dashes
+ * (e.g. A1B2-C3D4-E5F6). The canonical Firebase id stays dash-free; lookups
+ * strip the delimiters back out.
+ */
+function formatConnectId(connectId) {
+  const clean = String(connectId ?? '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+  return clean.replace(/(.{4})(?=.)/g, '$1-');
+}
+
+/** Turn any user-typed variant (with dashes, spaces, lowercase) back into the canonical id. */
+function normalizeConnectId(connectId) {
+  return String(connectId ?? '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
 }
 
 module.exports = {
@@ -142,6 +158,8 @@ module.exports = {
   getRedirectFromRequest,
   clearRedirectCookie,
   makeConnectId,
+  formatConnectId,
+  normalizeConnectId,
   serializeSession,
   deserializeSession,
 };

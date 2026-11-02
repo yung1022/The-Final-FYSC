@@ -226,11 +226,12 @@
             throw new Error(data.error || 'Failed to generate connect code');
           }
 
+          const code = data.connectCode || data.connectId;
           result.innerHTML = `
             <div class="success"><strong>Connect code created.</strong></div>
             <div><strong>Command:</strong></div>
-            <div class="code">!connect ${data.connectId}</div>
-            <div class="small">Nightbot later calls: <strong>/api/connect/${data.connectId}?channel=YOUTUBE_CHANNEL_ID</strong></div>
+            <div class="code">!connect ${code}</div>
+            <div class="small">Nightbot later calls: <strong>/api/connect/${data.connectId}?channel=YOUTUBE_CHANNEL_ID</strong> (the command works with or without the dashes)</div>
           `;
         } catch (error) {
           result.classList.add('visible');
