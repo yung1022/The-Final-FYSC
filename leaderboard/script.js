@@ -28,6 +28,19 @@ const BATTLE_REFRESH_MS = 1000;
 const BATTLE_ROW_WINNER_CLASS = 'battle-winner';
 const BATTLE_ROW_CHASER_CLASS = 'battle-chaser';
 const BATTLE_FOCUS_CLASS = 'battle-focus';
+const ACCELERATING_CLASS = 'accelerating';
+
+/**
+ * Minimum trend sample count and the minimum required acceleration rate before
+ * the single "gaining faster and faster" highlight is awarded.
+ *
+ * The requirement: a player needs at least 5 trend samples and their growth
+ * must be accelerating by at least 20% between consecutive samples, on average.
+ * Only the single fastest-accelerating player that meets the requirement gets
+ * highlighted.
+ */
+const ACCELERATING_MIN_SAMPLES = 5;
+const ACCELERATING_MIN_RATE = 0.20;
 
 function getConfiguredGrowthEffects() {
   const configured = Array.isArray(window.LEADERBOARD_GROWTH_EFFECTS)
@@ -304,6 +317,64 @@ function createMdmFire(item){
   return fire;
 }
 
+/**
+ * The top-3 fastest-growing players, by the same offline growth-per-second the
+ * "fastest growing" panel ranks on. Returns their player keys in rank order.
+ */
+function getGrowthLeaderKeys(items){
+  return items
+    .map((item) => ({ key: getPlayerKey(item), growth: calculateOfflineGrowthPerSecond(item.growth, item.offlineduration) }))
+    .sort((a, b) => b.growth - a.growth)
+    .slice(0, 3)
+    .map((leader) => leader.key);
+}
+
+/**
+ * The one player whose growth is genuinely speeding up, or null.
+ *
+ * The requirement uses the per-player subscriber history the graph already
+ * tracks: the player needs at least ACCELERATING_MIN_SAMPLES samples, every
+ * measured interval must be growing (never shrinking or flat), and the growth
+ * rate between consecutive intervals must rise by at least
+ * ACCELERATING_MIN_RATE on average (e.g. +20% per interval). Of the players
+ * that meet the bar only the most-accelerating one is highlighted.
+ */
+function getAcceleratingPlayerKey(items){
+  let bestKey = null;
+  let bestRate = 0;
+
+  for (const item of items){
+    const key = getPlayerKey(item);
+    const history = subscriberHistory.get(key) || [];
+    if (history.length < ACCELERATING_MIN_SAMPLES) continue;
+
+    const gains = [];
+    for (let i = 1; i < history.length; i++){
+      const gain = history[i] - history[i - 1];
+      if (gain <= 0) { gains.length = 0; continue; }
+      gains.push(gain);
+    }
+    if (gains.length < ACCELERATING_MIN_SAMPLES - 1) continue;
+
+    let totalRate = 0;
+    let rates = 0;
+    for (let i = 1; i < gains.length; i++){
+      if (gains[i - 1] <= 0) continue;
+      totalRate += (gains[i] - gains[i - 1]) / gains[i - 1];
+      rates++;
+    }
+    if (rates === 0) continue;
+
+    const avgRate = totalRate / rates;
+    if (avgRate >= ACCELERATING_MIN_RATE && avgRate > bestRate){
+      bestRate = avgRate;
+      bestKey = key;
+    }
+  }
+
+  return bestKey;
+}
+
 function createCell(rank, item, previousValue, key){
   const el = document.createElement('div');
   el.className = 'cell';
@@ -391,7 +462,7 @@ function renderGrowthLeaders(items){
   growthListEl.innerHTML = '';
   leaders.forEach(({ item, growth }, index) => {
     const row = document.createElement('div');
-    row.className = 'growth-row';
+    row.className = `growth-row growth-tier-${index + 1}`;
 
     const rank = document.createElement('span');
     rank.className = 'growth-rank';
@@ -483,6 +554,7 @@ function renderLeaderboard(){
     return;
   }
 
+  const growthLeaders = getGrowthLeaderKeys(normalized);
   const currentDisplayedValues = new Map();
   for (let i = 0; i < TOP_CELL_COUNT; i++) {
     const item = top[i] || { name: '—', subscribers: 0 };
@@ -491,6 +563,9 @@ function renderLeaderboard(){
     const key = getPlayerKey(normalizedItem);
     currentDisplayedValues.set(key, displayedValue);
     const card = createCell(i + 1, normalizedItem, previousDisplayedValues.get(key), key);
+    const leaderIndex = growthLeaders.indexOf(key);
+    if (leaderIndex !== -1) card.classList.add(`growth-leader-${leaderIndex + 1}`);
+    if (key === getAcceleratingPlayerKey(top)) card.classList.add(ACCELERATING_CLASS);
     playerCards.set(key, card);
     grid.appendChild(card);
   }
