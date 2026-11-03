@@ -28,9 +28,18 @@ main{margin:0 auto;width:min(100%,1600px)}
    aspect-ratio makes its width equal, so the fire is sized by the slot height
    and the divider line on the column's right edge moves along with it. */
 .rank-number{position:relative;display:inline-flex;align-items:center;justify-content:center;width:100%;height:100%;font-variant-numeric:tabular-nums;border-radius:4px;overflow:hidden}
+/* The fire GIFs are tall 9:16-ish frames whose flame artwork sits in the
+   bottom part of the frame. With 'cover' and default centering the crop window
+   sits on the frame's middle, which pushes the flame below the box edge and
+   crops it. The fire tiers anchor the crop to the bottom of the frame so the
+   flame fills the box; the other (rings, bars, ice) keep their artwork spread
+   over the whole frame and stay centered. */
+.mdm-fire-media{display:block;width:100%;height:100%;object-fit:cover}
+.orange-fire .mdm-fire-media,.red-fire .mdm-fire-media,.yellow-fire .mdm-fire-media,
+.red-fire2 .mdm-fire-media,.green-fire .mdm-fire-media,.blue-fire .mdm-fire-media,
+.purple-fire .mdm-fire-media{object-position:center bottom}
 .rank-text{position:relative;z-index:2}
 .mdm-fire{position:absolute;inset:0;display:grid;place-items:center;font-size:16px;line-height:1;z-index:1;overflow:hidden;pointer-events:none}
-.mdm-fire-media{display:block;width:100%;height:100%;object-fit:contain}
 .mdm-fire.fire-blue{filter:hue-rotate(180deg) saturate(1.15) drop-shadow(0 0 3px #168cff)}
 .mdm-fire.fire-yellow{filter:hue-rotate(25deg) saturate(1.4) drop-shadow(0 0 3px #ffd21f)}
 .mdm-fire.fire-orange{filter:hue-rotate(5deg) saturate(1.7) drop-shadow(0 0 3px #ff8a00)}
