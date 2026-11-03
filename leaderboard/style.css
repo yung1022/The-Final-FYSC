@@ -24,12 +24,13 @@ main{margin:0 auto;width:min(100%,1600px)}
 .battle-value{color:#9fb2c4;font-variant-numeric:tabular-nums}
 .battle-winner,.battle-winner .battle-rank,.battle-winner .battle-value{color:#75e0a2;font-weight:700}
 .battle-chaser,.battle-chaser .battle-rank,.battle-chaser .battle-value{color:#f5c76b}
-.rank-number{position:relative;display:flex;align-items:center;justify-content:center;height:100%;font-variant-numeric:tabular-nums;border-radius:4px;overflow:hidden}
-/* The fire is in normal flow and sized by the slot height, so the rank column
-   (and the divider line on its right edge) auto-sizes around the fire. */
-.mdm-fire{position:relative;display:grid;place-items:center;height:100%;flex:none;font-size:16px;line-height:1;z-index:1;overflow:hidden;pointer-events:none}
-.mdm-fire-media{display:block;height:100%;width:auto;max-width:100%;object-fit:contain}
-.rank-text{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center}
+/* The rank column is a square box: its height is the slot height and
+   aspect-ratio makes its width equal, so the fire is sized by the slot height
+   and the divider line on the column's right edge moves along with it. */
+.rank-number{position:relative;display:inline-flex;align-items:center;justify-content:center;width:100%;height:100%;font-variant-numeric:tabular-nums;border-radius:4px;overflow:hidden}
+.rank-text{position:relative;z-index:2}
+.mdm-fire{position:absolute;inset:0;display:grid;place-items:center;font-size:16px;line-height:1;z-index:1;overflow:hidden;pointer-events:none}
+.mdm-fire-media{display:block;width:100%;height:100%;object-fit:contain}
 .mdm-fire.fire-blue{filter:hue-rotate(180deg) saturate(1.15) drop-shadow(0 0 3px #168cff)}
 .mdm-fire.fire-yellow{filter:hue-rotate(25deg) saturate(1.4) drop-shadow(0 0 3px #ffd21f)}
 .mdm-fire.fire-orange{filter:hue-rotate(5deg) saturate(1.7) drop-shadow(0 0 3px #ff8a00)}
@@ -44,8 +45,7 @@ h1{font-size:clamp(18px,2vw,30px);line-height:1;margin:0}
 .growth-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
 .growth-value{color:#75e0a2;font-variant-numeric:tabular-nums}
 .grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(10,minmax(0,1fr));grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;padding:0 6px 6px;min-height:0;flex:1}
-/* The rank column auto-sizes around the fire; 48px is just the floor. */
-.cell{background:linear-gradient(160deg,var(--cell-bg) 0%,#0b1a30 55%,#071224 100%);border:1px solid var(--cell-border);padding:3px 5px;border-radius:6px;min-height:0;overflow:hidden;position:relative;display:grid;grid-template-columns:minmax(48px,auto) 24px minmax(0,1fr);gap:5px;align-items:center;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.cell{background:linear-gradient(160deg,var(--cell-bg) 0%,#0b1a30 55%,#071224 100%);border:1px solid var(--cell-border);padding:3px 5px;border-radius:6px;min-height:0;overflow:hidden;position:relative;display:grid;grid-template-columns:auto 24px minmax(0,1fr);gap:5px;align-items:center;box-shadow:0 2px 6px rgba(0,0,0,.3)}
 .cell.battle-focus{border-color:var(--accent);box-shadow:inset 0 0 0 1px rgba(6,182,212,.6)}
 .cell.battle-focus .rank{color:#f5c76b}
 
@@ -65,7 +65,7 @@ h1{font-size:clamp(18px,2vw,30px);line-height:1;margin:0}
 .growth-row.growth-tier-1 .growth-value{color:#ffe98a}
 .growth-row.growth-tier-2 .growth-rank{color:#8fe38f}
 .growth-row.growth-tier-3 .growth-rank{color:#c88a5a}
-.rank{font-weight:700;color:var(--accent);font-size:10px;line-height:1;height:100%;display:flex;align-items:center;justify-content:center;grid-row:1 / -1;border-right:1px solid var(--cell-border);position:relative}
+.rank{font-weight:700;color:var(--accent);font-size:10px;line-height:1;height:100%;aspect-ratio:1 / 1;display:flex;align-items:center;justify-content:center;grid-row:1 / -1;border-right:1px solid var(--cell-border);position:relative}
 .player-image{width:24px;height:24px;display:grid;place-items:center;flex:none;object-fit:cover;border-radius:50%;background:#26384a;border:1px solid #3b556b;color:#b8c9d8;font-size:12px;font-weight:700;position:relative;z-index:2}
 .cell-content{min-width:0;overflow:hidden;position:relative;z-index:2}
 .player-metrics{display:block;width:100%;min-width:0}
