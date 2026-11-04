@@ -120,7 +120,7 @@ module.exports = async function handler(req, res) {
       ...user,
       userId: user.userId,
       ytid: channelId,
-      ytgrowth: previousYtGrowth + addedGrowth,
+      ytgrowth: previousYtGrowth - tempSubGain + addedGrowth,
       tempsub: previousTempsub + tempSubGain,
       ytofflineduration: now,
       updatedAt: new Date().toISOString(),
