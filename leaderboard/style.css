@@ -29,12 +29,12 @@ main{margin:0 auto;width:min(100%,1600px)}
    and the divider line on the column's right edge moves along with it. */
 .rank-number{position:relative;display:inline-flex;align-items:center;justify-content:center;width:100%;height:100%;font-variant-numeric:tabular-nums;border-radius:4px;overflow:hidden}
 /* The fire GIFs are tall 9:16-ish frames whose flame artwork sits in the
-   bottom part of the frame. With 'cover' and default centering the crop window
-   sits on the frame's middle, which pushes the flame below the box edge and
-   crops it. The fire tiers anchor the crop to the bottom of the frame so the
-   flame fills the box; the other (rings, bars, ice) keep their artwork spread
-   over the whole frame and stay centered. */
-.mdm-fire-media{display:block;width:100%;height:100%;object-fit:cover}
+   bottom part of the frame. 'contain' sizes them by the slot height so the
+   whole frame (and the flame) stays inside the box instead of being cropped,
+   and 'center bottom' keeps the flame anchored at the bottom edge; the other
+   (rings, bars, ice) keep their artwork spread over the whole frame and
+   stay centered. */
+.mdm-fire-media{display:block;width:100%;height:100%;object-fit:contain}
 .orange-fire .mdm-fire-media,.red-fire .mdm-fire-media,.yellow-fire .mdm-fire-media,
 .red-fire2 .mdm-fire-media,.green-fire .mdm-fire-media,.blue-fire .mdm-fire-media,
 .purple-fire .mdm-fire-media{object-position:center bottom}
