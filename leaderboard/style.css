@@ -24,20 +24,17 @@ main{margin:0 auto;width:min(100%,1600px)}
 .battle-value{color:#9fb2c4;font-variant-numeric:tabular-nums}
 .battle-winner,.battle-winner .battle-rank,.battle-winner .battle-value{color:#75e0a2;font-weight:700}
 .battle-chaser,.battle-chaser .battle-rank,.battle-chaser .battle-value{color:#f5c76b}
-/* The rank column is a square box: its height is the slot height and
-   aspect-ratio makes its width equal, so the fire is sized by the slot height
-   and the divider line on the column's right edge moves along with it. */
+/* The rank column is 5:9: its height follows the slot, and its divider stays
+  at the right edge of the tall rank box. */
 .rank-number{position:relative;display:inline-flex;align-items:center;justify-content:center;width:100%;height:100%;font-variant-numeric:tabular-nums;border-radius:4px;overflow:hidden}
-/* Fire frames are tall, so cap their height and anchor them to the bottom of
-  the rank slot to keep the flame visible without letting it dominate a row. */
+/* Fire frames are tall, so cap their height to keep the full artwork visible
+  without letting it dominate a row. */
 .mdm-fire-media{display:block;width:100%;height:100%;object-fit:contain}
 .orange-fire .mdm-fire-media,.red-fire .mdm-fire-media,.yellow-fire .mdm-fire-media,
 .red-fire2 .mdm-fire-media,.green-fire .mdm-fire-media,.blue-fire .mdm-fire-media,
-.purple-fire .mdm-fire-media{max-height:32px;object-position:center bottom}
+.purple-fire .mdm-fire-media{max-height:32px;object-position:center}
 .rank-text{position:relative;z-index:2}
 .mdm-fire{position:absolute;inset:0;display:grid;place-items:center;font-size:16px;line-height:1;z-index:1;overflow:hidden;pointer-events:none}
-.mdm-fire.orange-fire,.mdm-fire.red-fire,.mdm-fire.yellow-fire,.mdm-fire.red-fire2,
-.mdm-fire.green-fire,.mdm-fire.blue-fire,.mdm-fire.purple-fire{align-items:end}
 .mdm-fire.fire-blue{filter:hue-rotate(180deg) saturate(1.15) drop-shadow(0 0 3px #168cff)}
 .mdm-fire.fire-yellow{filter:hue-rotate(25deg) saturate(1.4) drop-shadow(0 0 3px #ffd21f)}
 .mdm-fire.fire-orange{filter:hue-rotate(5deg) saturate(1.7) drop-shadow(0 0 3px #ff8a00)}
@@ -72,7 +69,7 @@ h1{font-size:clamp(18px,2vw,30px);line-height:1;margin:0}
 .growth-row.growth-tier-1 .growth-value{color:#ffe98a}
 .growth-row.growth-tier-2 .growth-rank{color:#8fe38f}
 .growth-row.growth-tier-3 .growth-rank{color:#c88a5a}
-.rank{font-weight:700;color:var(--accent);font-size:10px;line-height:1;height:100%;aspect-ratio:1 / 1;display:flex;align-items:center;justify-content:center;grid-row:1 / -1;border-right:1px solid var(--cell-border);position:relative}
+.rank{font-weight:700;color:var(--accent);font-size:10px;line-height:1;height:100%;aspect-ratio:5 / 9;display:flex;align-items:center;justify-content:center;grid-row:1 / -1;border-right:1px solid var(--cell-border);position:relative}
 .player-image{width:24px;height:24px;display:grid;place-items:center;flex:none;object-fit:cover;border-radius:50%;background:#26384a;border:1px solid #3b556b;color:#b8c9d8;font-size:12px;font-weight:700;position:relative;z-index:2}
 .cell-content{min-width:0;overflow:hidden;position:relative;z-index:2}
 .player-metrics{display:block;width:100%;min-width:0}
